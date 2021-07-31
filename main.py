@@ -108,6 +108,7 @@ def main():
                 if transpose_delta < 5:
                     time.sleep(transpose_delta)
                 cast(hwnd, spells['transpose'])
+                transpose_timestamp = time.time()
                 state = BlackMageState.ICE
                 continue
             cast(hwnd, spells['fire'])
@@ -116,6 +117,7 @@ def main():
             if mp >= 8000:
                 if transpose_delta > 5:
                     cast(hwnd, spells['transpose'])
+                    transpose_timestamp = time.time()
                     state = BlackMageState.FIRE
                 continue
             cast(hwnd, spells['ice'])
