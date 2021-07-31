@@ -103,6 +103,8 @@ def main():
         mp = get_memory_values(hwnd, address_descriptions['mp'])
         transpose_delta = time.time() - transpose_timestamp
 
+        keyboard_send_vk_as_scan_code(hwnd, win32con.VK_TAB)  # Hotkey for targeting nearest enemy
+
         if state == BlackMageState.FIRE:
             if mp < 2000:
                 if transpose_delta < 5:
