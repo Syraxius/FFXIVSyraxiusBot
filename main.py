@@ -178,7 +178,7 @@ class Bot:
         self.max_distance_to_target = 10
         self.max_patrol_distance = 30
         self.mode = 'patrol'  # 'patrol', 'dungeon', 'assist_autotarget', 'assist'
-        if self.mode == 'patrol' or self.mode == 'dungeon':
+        if self.mode == 'dungeon':
             self.max_distance_to_target = 10
         else:
             self.max_distance_to_target = 25
@@ -237,6 +237,7 @@ class Bot:
         last_x = self.x
         last_y = self.y
         last_state = None
+        acquiring_timestamp = None
 
         while True:
             self.scan()
@@ -255,9 +256,11 @@ class Bot:
             if self.state_overall == OverallState.RETURNING:
                 if self.mode != 'patrol':
                     self.state_overall = OverallState.ACQUIRING
+                    acquiring_timestamp = time.time()
                     continue
                 if distance_delta < 3:
                     self.state_overall = OverallState.ACQUIRING
+                    acquiring_timestamp = time.time()
                     if is_autorun:
                         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
                         is_autorun = False
@@ -290,6 +293,10 @@ class Bot:
                     keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F11)  # Hotkey for targeting nearest enemy
                 time.sleep(0.2)
                 if self.mode == 'patrol':
+                    if time.time() - acquiring_timestamp > 5:
+                        turn_duration = math.pi / 2 / 2.65
+                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('d', 0), action='hold', duration=turn_duration)  # Hotkey for turn left
+                        acquiring_timestamp = time.time()
                     if distance_delta > self.max_patrol_distance:
                         self.state_overall = OverallState.RETURNING
                         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F1)  # Hotkey for targeting self, acting as a deselect
@@ -297,6 +304,7 @@ class Bot:
             elif self.state_overall == OverallState.APPROACHING:
                 if not self.is_target_selected:
                     self.state_overall = OverallState.ACQUIRING
+                    acquiring_timestamp = time.time()
                     if is_autorun:
                         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
                         is_autorun = False
@@ -326,6 +334,7 @@ class Bot:
             elif self.state_overall == OverallState.ATTACKING:
                 if not self.is_target_selected:
                     self.state_overall = OverallState.ACQUIRING
+                    acquiring_timestamp = time.time()
                     continue
                 if self.distance_to_target > self.max_distance_to_target:
                     self.state_overall = OverallState.APPROACHING
