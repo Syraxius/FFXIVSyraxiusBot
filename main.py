@@ -1,4 +1,5 @@
 import enum
+import json
 import math
 import time
 
@@ -112,6 +113,12 @@ address_descriptions = {
         'datatype': 'float',
     },
 
+    'z': {
+        'base_address_offset': 0x1DBBFE0,
+        'pointer_offsets': (),
+        'datatype': 'float',
+    },
+
     'x_complex': {
         'base_address_offset': 0x01DAF9A8,
         'pointer_offsets': (0x18, 0xD4),
@@ -194,11 +201,13 @@ class Bot:
         self.is_target_selected = False
         self.x = 0
         self.y = 0
+        self.z = 0
         self.x_complex = 0
         self.y_complex = 0
         self.scan()
         self.init_x = self.x
         self.init_y = self.y
+        self.init_z = self.z
 
         self.state_overall = OverallState.RETURNING
         self.attack = self.attack_blackmage
@@ -221,6 +230,7 @@ class Bot:
         self.mp = get_memory_values(self.hwnd, self.base_address, address_descriptions['mp'])
         self.x = get_memory_values(self.hwnd, self.base_address, address_descriptions['x'])
         self.y = get_memory_values(self.hwnd, self.base_address, address_descriptions['y'])
+        self.z = get_memory_values(self.hwnd, self.base_address, address_descriptions['z'])
         self.x_complex = get_memory_values(self.hwnd, self.base_address, address_descriptions['x_complex'])
         self.y_complex = get_memory_values(self.hwnd, self.base_address, address_descriptions['y_complex'])
         self.distance_to_target = get_memory_values(self.hwnd, self.base_address, address_descriptions['distance_to_target'])
@@ -415,6 +425,19 @@ class Bot:
                         self.state_overall = OverallState.RETURNING
                         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F1)  # Hotkey for targeting self, acting as a deselect
                         continue
+
+    def record(self):
+        coordinates = []
+        try:
+            while True:
+                self.scan()
+                coordinates.append((self.x, self.y, self.z))
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            filename = 'recording%s.json' % (int(time.time() * 1000))
+            with open(filename, 'w') as f:
+                print('Writing %s waypoints to %s' % (len(coordinates), filename))
+                f.write(json.dumps(coordinates))
 
 
 def main():
