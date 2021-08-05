@@ -128,16 +128,44 @@ address_descriptions = {
 spells = {
     'ice': {
         'button': 1,
-        'delay': 2.5
+        'delay': 2.5,
+        'recast': 2.5,
     },
     'fire': {
         'button': 2,
-        'delay': 2.5
+        'delay': 2.5,
+        'recast': 2.5,
     },
     'transpose': {
         'button': 3,
-        'delay': 0.5
-    }
+        'delay': 0.5,
+        'recast': 5,
+    },
+    'fire3': {
+        'button': 4,
+        'delay': 3.5,
+        'recast': 2.5,
+    },
+    'thunder': {
+        'button': 5,
+        'delay': 2.5,
+        'recast': 2.5,
+    },
+    'thunder2': {
+        'button': 6,
+        'delay': 3,
+        'recast': 2.5,
+    },
+    'luciddreaming': {
+        'button': 7,
+        'delay': 0.5,
+        'recast': 60,
+    },
+    'swiftcast': {
+        'button': 8,
+        'delay': 0.5,
+        'recast': 60,
+    },
 }
 
 
@@ -151,6 +179,8 @@ class OverallState(enum.Enum):
 class BlackMageAttackState(enum.Enum):
     ICE = 1
     FIRE = 2
+    FIRE3 = 3
+    THUNDER = 4
 
 
 class Bot:
@@ -172,8 +202,12 @@ class Bot:
 
         self.state_overall = OverallState.RETURNING
         self.attack = self.attack_blackmage
-        self.state_attack = BlackMageAttackState.FIRE
-        self.transpose_timestamp = time.time()
+        self.state_attack = BlackMageAttackState.FIRE3
+        self.affinity_timestamp = 0
+        self.transpose_timestamp = 0
+        self.luciddreaming_timestamp = 0
+        self.swiftcast_timestamp = 0
+        self.swiftcast_active = False
 
         self.max_distance_to_target = 10
         self.max_patrol_distance = 30
@@ -192,30 +226,67 @@ class Bot:
         self.distance_to_target = get_memory_values(self.hwnd, self.base_address, address_descriptions['distance_to_target'])
         self.is_target_selected = self.distance_to_target != 0
 
-    def cast(self, spell):
+    def cast(self, spell, swiftcast_active=False):
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(spell['button']), 0))
-        time.sleep(spell['delay'])
+        if swiftcast_active:
+            time.sleep(spell['recast'])
+        else:
+            time.sleep(spell['delay'])
 
     def attack_blackmage(self):
+        affinity_delta = time.time() - self.affinity_timestamp
         transpose_delta = time.time() - self.transpose_timestamp
+        luciddreaming_delta = time.time() - self.luciddreaming_timestamp
+        swiftcast_delta = time.time() - self.swiftcast_timestamp
 
-        if self.state_attack == BlackMageAttackState.FIRE:
+        if affinity_delta > 15:
             if self.mp < 2000:
-                if transpose_delta < 5:
+                self.state_attack = BlackMageAttackState.ICE
+            else:
+                self.state_attack = BlackMageAttackState.FIRE3
+
+        if self.state_attack == BlackMageAttackState.FIRE3:
+            if self.mp < 2000:
+                self.state_attack = BlackMageAttackState.ICE
+            self.cast(spells['fire3'], swiftcast_active=self.swiftcast_active)
+            self.affinity_timestamp = time.time()
+            if self.swiftcast_active:
+                self.swiftcast_active = False
+            self.state_attack = BlackMageAttackState.FIRE
+        elif self.state_attack == BlackMageAttackState.FIRE:
+            if self.mp < 2000:
+                if transpose_delta < spells['transpose']['recast']:
                     time.sleep(transpose_delta)
                 self.cast(spells['transpose'])
                 self.transpose_timestamp = time.time()
-                self.state_attack = BlackMageAttackState.ICE
+                self.affinity_timestamp = time.time()
+                self.state_attack = BlackMageAttackState.THUNDER
                 return
+            if luciddreaming_delta >= spells['luciddreaming']['recast']:
+                self.cast(spells['luciddreaming'])
+                self.luciddreaming_timestamp = time.time()
             self.cast(spells['fire'])
+            self.affinity_timestamp = time.time()
+        elif self.state_attack == BlackMageAttackState.THUNDER:
+            self.cast(spells['thunder2'])
+            self.state_attack = BlackMageAttackState.ICE
+            return
         elif self.state_attack == BlackMageAttackState.ICE:
             if self.mp >= 8000:
-                if transpose_delta >= 5:
+                if swiftcast_delta >= spells['swiftcast']['recast']:
+                    self.cast(spells['swiftcast'])
+                    self.swiftcast_timestamp = time.time()
+                    self.swiftcast_active = True
+                    self.state_attack = BlackMageAttackState.FIRE3
+                    return
+                if transpose_delta >= spells['transpose']['recast']:
                     self.cast(spells['transpose'])
                     self.transpose_timestamp = time.time()
+                    self.affinity_timestamp = time.time()
                     self.state_attack = BlackMageAttackState.FIRE
                     return
             self.cast(spells['ice'])
+            self.affinity_timestamp = time.time()
 
     def calculate_navigation(self, target_x, target_y):
         direction_x = target_x - self.x
@@ -288,7 +359,6 @@ class Bot:
                     continue
                 if self.mode == 'dungeon':
                     keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('9', 0))  # Hotkey for following focused
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F1)  # Hotkey for targeting self, acting as a deselect
                 if self.mode == 'patrol' or self.mode == 'dungeon' or self.mode == 'assist_autotarget':
                     keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F11)  # Hotkey for targeting nearest enemy
                 time.sleep(0.2)
