@@ -1,7 +1,8 @@
 import json
 from queue import PriorityQueue
-from optimize import generate_optimized_adjacency_list, get_euclidean_distance, print_adjacency_list
-from visualize import visualize_coordinates
+from .optimize import generate_optimized_adjacency_list, get_euclidean_distance, print_adjacency_list
+
+from .visualize import visualize_coordinates
 
 
 class WaypointRouter:
@@ -26,7 +27,7 @@ class WaypointRouter:
         nearest_adjacency_list_node_b = self.get_closest_adjacency_list_node(coordinate_b)
         parent = []
         distance = []
-        for i in range(len(self.adjacency_list)):
+        for _ in range(len(self.adjacency_list)):
             parent.append(-1)
             distance.append(999999)
         parent[nearest_adjacency_list_node_a.index] = nearest_adjacency_list_node_a.index
@@ -34,6 +35,7 @@ class WaypointRouter:
         pq = PriorityQueue()
         pq.put((0, nearest_adjacency_list_node_a))
         while pq:
+            # print(parent)
             curr_distance, curr_node = pq.get()
             for neighbor in curr_node.neighbors:
                 neighbor_node = self.adjacency_list[neighbor]
@@ -62,17 +64,3 @@ class WaypointRouter:
         for i in path:
             coordinates.append(self.adjacency_list[i].coordinate)
         return coordinates
-
-
-def main():
-    with open('recordingsample.json') as f:
-        coordinates = json.loads(f.read())
-    w = WaypointRouter(coordinates)
-    a = [-155.91844177246094, -171.25912475585938, -2.000059127807617]
-    b = [-166.8415069580078, -15.939008712768555, 13.29746150970459]
-    shortest_path = w.get_shortest_path_coordinates(a, b)
-    visualize_coordinates(coordinates, shortest_path)
-
-
-if __name__ == '__main__':
-    main()

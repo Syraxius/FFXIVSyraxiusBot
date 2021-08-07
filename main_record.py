@@ -3,7 +3,7 @@ from botlib.bot import Bot
 
 def main():
     bot = Bot()
-    bot.start(mode='patrol')
+    bot.record()
 
 
 if __name__ == '__main__':

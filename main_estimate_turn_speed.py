@@ -3,7 +3,7 @@ from botlib.bot import Bot
 
 def main():
     bot = Bot()
-    bot.start(mode='patrol')
+    bot.estimate_turn_speed()
 
 
 if __name__ == '__main__':

@@ -1,13 +1,20 @@
 import json
 import math
 
-debouncing_distance = 0.5
+debouncing_distance = 0.1
 connecting_distance = 6
 
 
 def get_euclidean_distance(coordinate_a, coordinate_b):
     coordinate_diff = []
     for i in range(len(coordinate_a)):
+        coordinate_diff.append(coordinate_a[i] - coordinate_b[i])
+    return math.sqrt(sum(i ** 2 for i in coordinate_diff))
+
+
+def get_euclidean_distance_flat(coordinate_a, coordinate_b):
+    coordinate_diff = []
+    for i in range(2):
         coordinate_diff.append(coordinate_a[i] - coordinate_b[i])
     return math.sqrt(sum(i ** 2 for i in coordinate_diff))
 
