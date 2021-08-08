@@ -24,13 +24,7 @@ def estimate_turn_speed(bot):
             current_direction = math.atan2(bot.y_complex, bot.x_complex)
             if current_direction < 0:
                 current_direction += 2 * math.pi
-            provisional_direction = current_direction - prev_direction
-            if -math.pi < provisional_direction < math.pi:
-                final_direction = provisional_direction
-            elif 180 < provisional_direction:
-                final_direction = provisional_direction - 2 * math.pi
-            else:
-                final_direction = provisional_direction + 2 * math.pi
+            final_direction = bot.calculate_final_direction(current_direction, prev_direction)
             print(final_direction)
             total_radians += final_direction
             prev_direction = current_direction

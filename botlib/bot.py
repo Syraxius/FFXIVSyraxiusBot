@@ -259,6 +259,16 @@ class Bot:
             self.cast(spells['ice'])
             self.affinity_timestamp = time.time()
 
+    def calculate_final_direction(self, target_direction, current_direction):
+        provisional_direction = target_direction - current_direction
+        if -math.pi < provisional_direction < math.pi:
+            final_direction = provisional_direction
+        elif 180 < provisional_direction:
+            final_direction = provisional_direction - 2 * math.pi
+        else:
+            final_direction = provisional_direction + 2 * math.pi
+        return final_direction
+
     def calculate_navigation(self, target_x, target_y):
         direction_x = target_x - self.x
         direction_y = -(target_y - self.y)
@@ -269,13 +279,7 @@ class Bot:
         if target_direction < 0:
             target_direction = target_direction + 2 * math.pi  # 0 and 360 is East
         distance_delta = math.sqrt(direction_x * direction_x + direction_y * direction_y)
-        provisional_direction = target_direction - current_direction
-        if -math.pi < provisional_direction < math.pi:
-            final_direction = provisional_direction
-        elif math.pi < provisional_direction:
-            final_direction = provisional_direction - 2 * math.pi
-        else:
-            final_direction = provisional_direction + 2 * math.pi
+        final_direction = self.calculate_final_direction(target_direction, current_direction)
         is_turn_left = final_direction > 0
         direction_delta = abs(final_direction)
         return direction_delta, distance_delta, is_turn_left
