@@ -207,6 +207,26 @@ class Bot:
         elif direction == 'right':
             keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('d', 0), action='hold', duration=turn_duration)
 
+    def calculate_final_direction(self, target_direction, current_direction):
+        print(target_direction, current_direction)
+        provisional_direction = target_direction - current_direction
+        if -math.pi < provisional_direction < math.pi:
+            final_direction = provisional_direction
+        elif math.pi < provisional_direction:
+            final_direction = provisional_direction - 2 * math.pi
+        else:
+            final_direction = provisional_direction + 2 * math.pi
+        return final_direction
+
+    def calculate_navigation(self, target_x, target_y):
+        distance_delta = get_euclidean_distance([self.x, self.y, 0], [target_x, target_y, 0])
+        current_direction = self.get_current_direction()
+        target_direction = self.get_target_direction(target_x, target_y)
+        final_direction = self.calculate_final_direction(target_direction, current_direction)
+        is_turn_left = final_direction > 0
+        direction_delta = abs(final_direction)
+        return distance_delta, direction_delta, is_turn_left
+
     def cast(self, spell, swiftcast_active=False):
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(spell['button']), 0))
         if swiftcast_active:
@@ -267,26 +287,6 @@ class Bot:
                     return
             self.cast(spells['ice'])
             self.affinity_timestamp = time.time()
-
-    def calculate_final_direction(self, target_direction, current_direction):
-        print(target_direction, current_direction)
-        provisional_direction = target_direction - current_direction
-        if -math.pi < provisional_direction < math.pi:
-            final_direction = provisional_direction
-        elif math.pi < provisional_direction:
-            final_direction = provisional_direction - 2 * math.pi
-        else:
-            final_direction = provisional_direction + 2 * math.pi
-        return final_direction
-
-    def calculate_navigation(self, target_x, target_y):
-        distance_delta = get_euclidean_distance([self.x, self.y, 0], [target_x, target_y, 0])
-        current_direction = self.get_current_direction()
-        target_direction = self.get_target_direction(target_x, target_y)
-        final_direction = self.calculate_final_direction(target_direction, current_direction)
-        is_turn_left = final_direction > 0
-        direction_delta = abs(final_direction)
-        return distance_delta, direction_delta, is_turn_left
 
     def start(self):
         is_autorun = False
