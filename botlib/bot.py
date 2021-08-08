@@ -412,8 +412,9 @@ class Bot:
 
     def estimate_turn_speed(self):
         self.scan()
-        current_direction = math.atan2(self.y_complex, self.x_complex)
-        prev_direction = current_direction
+        prev_direction = math.atan2(self.y_complex, self.x_complex)
+        if prev_direction < 0:
+            prev_direction += 2 * math.pi
         results = []
         for i in range(100):
             total_radians = 0.0
@@ -453,4 +454,3 @@ class Bot:
             time.sleep(1)
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
         print(results)
-        print(sum(results) / len(results))
