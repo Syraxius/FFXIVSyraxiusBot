@@ -8,7 +8,6 @@ import win32con
 
 from botlib.control import keyboard_send_vk_as_scan_code
 from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, get_memory_values
-from waypointlib.routing import WaypointRouter, get_euclidean_distance
 
 address_descriptions = {
     'mp': {
@@ -134,6 +133,7 @@ class Bot:
         self.state_overall = OverallState.RETURNING
         self.attack = self.attack_blackmage
         self.state_attack = BlackMageAttackState.FIRE3
+        self.is_autorun = False
         self.affinity_timestamp = 0
         self.transpose_timestamp = 0
         self.luciddreaming_timestamp = 0
@@ -166,6 +166,34 @@ class Bot:
         if curr_direction < 0:
             curr_direction += 2 * math.pi
         return curr_direction
+
+    def ensure_walking_state(self, is_walking):
+        if is_walking:
+            if not self.is_autorun:
+                keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
+                self.is_autorun = True
+        elif not is_walking:
+            if self.is_autorun:
+                keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
+                self.is_autorun = False
+
+    def get_turn_duration(self, radians):
+        # Delta Radians = 2.65 * Turn Duration + 0.0142
+        # Delta Radians = 2.4 * Turn Duration + 0.055
+        # Why different?
+        turn_speed = 2.4  # rad/s
+        turn_min_amount = 0.055  # rad
+        turn_duration = (abs(radians) - turn_min_amount) / turn_speed
+        if turn_duration < 0:
+            turn_duration = 0
+        return turn_duration
+
+    def turn(self, direction, radians):
+        turn_duration = self.get_turn_duration(radians)
+        if direction == 'left':
+            keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('a', 0), action='hold', duration=turn_duration)
+        elif direction == 'right':
+            keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('d', 0), action='hold', duration=turn_duration)
 
     def cast(self, spell, swiftcast_active=False):
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(spell['button']), 0))
