@@ -2,8 +2,8 @@ from botlib.bot import Bot
 
 
 def main():
-    bot = Bot()
-    bot.start(mode='patrol')
+    bot = Bot(mode='patrol')
+    bot.start()
 
 
 if __name__ == '__main__':

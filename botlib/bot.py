@@ -106,9 +106,9 @@ class OverallState(enum.Enum):
 
 
 class BlackMageAttackState(enum.Enum):
-    ICE = 1
-    FIRE = 2
-    FIRE3 = 3
+    INITIATE = 1
+    ICE = 2
+    FIRE = 3
     THUNDER = 4
 
 
@@ -133,13 +133,10 @@ class Bot:
 
         self.state_overall = OverallState.RETURNING
         self.attack = self.attack_blackmage
-        self.state_attack = BlackMageAttackState.FIRE3
+        self.state_attack = BlackMageAttackState.INITIATE
         self.is_autorun = False
-        self.affinity_timestamp = 0
-        self.transpose_timestamp = 0
-        self.luciddreaming_timestamp = 0
-        self.swiftcast_timestamp = 0
         self.swiftcast_active = False
+        self.skill_timestamp = {}
 
         self.max_distance_to_target = 10
         self.max_patrol_distance = 30
@@ -208,7 +205,6 @@ class Bot:
             keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('d', 0), action='hold', duration=turn_duration)
 
     def calculate_final_direction(self, target_direction, current_direction):
-        print(target_direction, current_direction)
         provisional_direction = target_direction - current_direction
         if -math.pi < provisional_direction < math.pi:
             final_direction = provisional_direction
@@ -227,66 +223,75 @@ class Bot:
         direction_delta = abs(final_direction)
         return distance_delta, direction_delta, is_turn_left
 
-    def cast(self, spell, swiftcast_active=False):
+    def cast(self, spell_name, swiftcast_active=False):
+        print('Casting %s' % spell_name)
+        spell = spells[spell_name]
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(spell['button']), 0))
         if swiftcast_active:
             time.sleep(spell['recast'])
         else:
             time.sleep(spell['delay'])
 
-    def attack_blackmage(self):
-        affinity_delta = time.time() - self.affinity_timestamp
-        transpose_delta = time.time() - self.transpose_timestamp
-        luciddreaming_delta = time.time() - self.luciddreaming_timestamp
-        swiftcast_delta = time.time() - self.swiftcast_timestamp
+    def set_skill_cooldown(self, skill, cooldown):
+        self.skill_timestamp[skill] = (time.time(), cooldown)
 
-        if affinity_delta > 15:
+    def get_skill_cooldown_remaining(self, skill):
+        skill_timestamp, cooldown = self.skill_timestamp.get(skill, (0, 0))
+        return max(0, cooldown - (time.time() - skill_timestamp))
+
+    def get_skill_is_cooldown(self, skill):
+        return self.get_skill_cooldown_remaining(skill) <= 0
+
+    def attack_blackmage(self):
+        if self.get_skill_is_cooldown('affinity'):
             if self.mp < 2000:
                 self.state_attack = BlackMageAttackState.ICE
             else:
-                self.state_attack = BlackMageAttackState.FIRE3
+                self.state_attack = BlackMageAttackState.INITIATE
 
-        if self.state_attack == BlackMageAttackState.FIRE3:
+        if self.state_attack == BlackMageAttackState.INITIATE:
             if self.mp < 2000:
                 self.state_attack = BlackMageAttackState.ICE
-            self.cast(spells['fire3'], swiftcast_active=self.swiftcast_active)
-            self.affinity_timestamp = time.time()
+            self.cast('fire3', swiftcast_active=self.swiftcast_active)
+            self.set_skill_cooldown('affinity', 15)
             if self.swiftcast_active:
                 self.swiftcast_active = False
             self.state_attack = BlackMageAttackState.FIRE
+
         elif self.state_attack == BlackMageAttackState.FIRE:
             if self.mp < 2000:
-                if transpose_delta < spells['transpose']['recast']:
-                    time.sleep(transpose_delta)
-                self.cast(spells['transpose'])
-                self.transpose_timestamp = time.time()
-                self.affinity_timestamp = time.time()
+                time.sleep(self.get_skill_cooldown_remaining('transpose'))
+                self.cast('transpose')
+                self.set_skill_cooldown('transpose', spells['transpose']['recast'])
+                self.set_skill_cooldown('affinity', 15)
                 self.state_attack = BlackMageAttackState.THUNDER
                 return
-            if luciddreaming_delta >= spells['luciddreaming']['recast']:
-                self.cast(spells['luciddreaming'])
-                self.luciddreaming_timestamp = time.time()
-            self.cast(spells['fire'])
-            self.affinity_timestamp = time.time()
+            if self.get_skill_cooldown_remaining('luciddreaming') <= 0:
+                self.cast('luciddreaming')
+                self.set_skill_cooldown('luciddreaming', spells['luciddreaming']['recast'])
+            self.cast('fire')
+            self.set_skill_cooldown('affinity', 15)
+
         elif self.state_attack == BlackMageAttackState.THUNDER:
-            self.cast(spells['thunder2'])
+            self.cast('thunder2')
             self.state_attack = BlackMageAttackState.ICE
+
         elif self.state_attack == BlackMageAttackState.ICE:
             if self.mp >= 8000:
-                if swiftcast_delta >= spells['swiftcast']['recast']:
-                    self.cast(spells['swiftcast'])
-                    self.swiftcast_timestamp = time.time()
+                if self.get_skill_is_cooldown('swiftcast'):
+                    self.cast('swiftcast')
+                    self.set_skill_cooldown('swiftcast', spells['swiftcast']['recast'])
                     self.swiftcast_active = True
-                    self.state_attack = BlackMageAttackState.FIRE3
+                    self.state_attack = BlackMageAttackState.INITIATE
                     return
-                if transpose_delta >= spells['transpose']['recast']:
-                    self.cast(spells['transpose'])
-                    self.transpose_timestamp = time.time()
-                    self.affinity_timestamp = time.time()
+                if self.get_skill_is_cooldown('transpose'):
+                    self.cast('transpose')
+                    self.set_skill_cooldown('transpose', spells['transpose']['recast'])
+                    self.set_skill_cooldown('affinity', 15)
                     self.state_attack = BlackMageAttackState.FIRE
                     return
-            self.cast(spells['ice'])
-            self.affinity_timestamp = time.time()
+            self.cast('ice')
+            self.set_skill_cooldown('affinity', 15)
 
     def start(self):
         is_autorun = False
@@ -339,7 +344,7 @@ class Bot:
                     is_autorun = True
                 time.sleep(0.2)
 
-            if self.state_overall == OverallState.ACQUIRING:
+            elif self.state_overall == OverallState.ACQUIRING:
                 if self.is_target_selected:
                     self.state_overall = OverallState.APPROACHING
                     continue

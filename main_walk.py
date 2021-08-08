@@ -48,7 +48,7 @@ def main():
     bot = Bot()
     recording = 'recordings/uldahsample.json'
     walk(bot, recording, GATE)
-    walk(bot, recording, CRYSTAL)
+    # walk(bot, recording, CRYSTAL)
 
 
 if __name__ == '__main__':
