@@ -8,6 +8,7 @@ import win32con
 
 from botlib.control import keyboard_send_vk_as_scan_code
 from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, get_memory_values
+from waypointlib.routing import get_euclidean_distance
 
 address_descriptions = {
     'mp': {
@@ -167,6 +168,14 @@ class Bot:
             curr_direction += 2 * math.pi
         return curr_direction
 
+    def get_target_direction(self, target_x, target_y):
+        direction_x = target_x - self.x
+        direction_y = -(target_y - self.y)
+        target_direction = math.atan2(direction_y, direction_x)
+        if target_direction < 0:
+            target_direction = target_direction + 2 * math.pi
+        return target_direction
+
     def ensure_walking_state(self, is_walking):
         if is_walking:
             if not self.is_autorun:
@@ -270,19 +279,13 @@ class Bot:
         return final_direction
 
     def calculate_navigation(self, target_x, target_y):
-        direction_x = target_x - self.x
-        direction_y = -(target_y - self.y)
-        current_direction = math.atan2(self.y_complex, self.x_complex)
-        if current_direction < 0:
-            current_direction = current_direction + 2 * math.pi  # 0 and 360 is East
-        target_direction = math.atan2(direction_y, direction_x)
-        if target_direction < 0:
-            target_direction = target_direction + 2 * math.pi  # 0 and 360 is East
-        distance_delta = math.sqrt(direction_x * direction_x + direction_y * direction_y)
+        distance_delta = get_euclidean_distance([self.x, self.y, 0], [target_x, target_y, 0])
+        current_direction = self.get_current_direction()
+        target_direction = self.get_target_direction(target_x, target_y)
         final_direction = self.calculate_final_direction(target_direction, current_direction)
         is_turn_left = final_direction > 0
         direction_delta = abs(final_direction)
-        return direction_delta, distance_delta, is_turn_left
+        return distance_delta, direction_delta, is_turn_left
 
     def start(self):
         is_autorun = False
@@ -295,7 +298,7 @@ class Bot:
         while True:
             self.scan()
 
-            direction_delta, distance_delta, is_turn_left = self.calculate_navigation(self.init_x, self.init_y)
+            distance_delta, direction_delta, is_turn_left = self.calculate_navigation(self.init_x, self.init_y)
             delta_y = self.y - last_y
             delta_x = self.x - last_x
             distance_delta_last = math.sqrt((delta_x * delta_x) + (delta_y * delta_y))

@@ -27,8 +27,8 @@ def walk(bot, recording, destination):
             break
         if next_coordinate is None:
             next_coordinate = shortest_path.pop(0)
-        direction_delta, distance_delta, is_turn_left = bot.calculate_navigation(next_coordinate[0], next_coordinate[1])
-        print(direction_delta, distance_delta, is_turn_left)
+        distance_delta, direction_delta, is_turn_left = bot.calculate_navigation(next_coordinate[0], next_coordinate[1])
+        print(distance_delta, direction_delta, is_turn_left)
         if distance_delta < 1:
             next_coordinate = None
         else:
