@@ -158,6 +158,15 @@ class Bot:
         self.distance_to_target = get_memory_values(self.hwnd, self.base_address, address_descriptions['distance_to_target'])
         self.is_target_selected = self.distance_to_target != 0
 
+    def get_current_coordinate(self):
+        return [self.x, self.y, self.z]
+
+    def get_current_direction(self):
+        curr_direction = math.atan2(self.y_complex, self.x_complex)
+        if curr_direction < 0:
+            curr_direction += 2 * math.pi
+        return curr_direction
+
     def cast(self, spell, swiftcast_active=False):
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(spell['button']), 0))
         if swiftcast_active:
@@ -410,47 +419,3 @@ class Bot:
                     is_autorun = True
             time.sleep(0.05)
 
-    def estimate_turn_speed(self):
-        self.scan()
-        prev_direction = math.atan2(self.y_complex, self.x_complex)
-        if prev_direction < 0:
-            prev_direction += 2 * math.pi
-        results = []
-        for i in range(100):
-            total_radians = 0.0
-            duration = 0.01 * i
-            times = 1
-            for _ in range(times):
-                keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('a', 0), action='hold', duration=duration)
-                self.scan()
-                current_direction = math.atan2(self.y_complex, self.x_complex)
-                if current_direction < 0:
-                    current_direction += 2 * math.pi
-                provisional_direction = current_direction - prev_direction
-                if -math.pi < provisional_direction < math.pi:
-                    total_radians += provisional_direction
-                elif 180 < provisional_direction:
-                    total_radians += provisional_direction - 2 * math.pi
-                else:
-                    total_radians += provisional_direction + 2 * math.pi
-                prev_direction = current_direction
-                time.sleep(0.1)
-            average_radians = total_radians / times
-            results.append((duration, average_radians))
-        print(results)
-
-    def estimate_walk_speed(self):
-        self.scan()
-        prev_coordinate = [self.x, self.y, self.z]
-        results = []
-        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
-        for i in range(10):
-            self.scan()
-            curr_coordinate = [self.x, self.y, self.z]
-            delta_distance = get_euclidean_distance(prev_coordinate, curr_coordinate)
-            print(curr_coordinate, prev_coordinate)
-            prev_coordinate = curr_coordinate
-            results.append(delta_distance)
-            time.sleep(1)
-        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
-        print(results)
