@@ -269,10 +269,11 @@ class Bot:
             self.affinity_timestamp = time.time()
 
     def calculate_final_direction(self, target_direction, current_direction):
+        print(target_direction, current_direction)
         provisional_direction = target_direction - current_direction
         if -math.pi < provisional_direction < math.pi:
             final_direction = provisional_direction
-        elif 180 < provisional_direction:
+        elif math.pi < provisional_direction:
             final_direction = provisional_direction - 2 * math.pi
         else:
             final_direction = provisional_direction + 2 * math.pi
