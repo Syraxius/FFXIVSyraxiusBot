@@ -188,8 +188,11 @@ class Bot:
             turn_duration = 0
         return turn_duration
 
-    def turn(self, direction, radians):
+    def turn_by_radians(self, direction, radians):
         turn_duration = self.get_turn_duration(radians)
+        self.turn_by_duration(direction, turn_duration)
+
+    def turn_by_duration(self, direction, turn_duration):
         if direction == 'left':
             keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('a', 0), action='hold', duration=turn_duration)
         elif direction == 'right':

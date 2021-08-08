@@ -37,9 +37,9 @@ def walk(bot, recording, destination):
                 bot.ensure_walking_state(False)
             if turn_duration > 0:
                 if is_turn_left:
-                    bot.turn('left', turn_duration)
+                    bot.turn_by_duration('left', turn_duration)
                 else:
-                    bot.turn('right', turn_duration)
+                    bot.turn_by_duration('right', turn_duration)
             bot.ensure_walking_state(True)
         time.sleep(0.05)
 

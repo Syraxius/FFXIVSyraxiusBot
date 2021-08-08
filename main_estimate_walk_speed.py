@@ -12,7 +12,7 @@ def estimate_walk_speed(bot):
     bot.scan()
     prev_coordinate = bot.get_current_coordinate()
     results = []
-    keyboard_send_vk_as_scan_code(bot.hwnd, win32api.VkKeyScanEx('r', 0))
+    bot.ensure_walking_state(True)
     for i in range(10):
         bot.scan()
         curr_coordinate = bot.get_current_coordinate()
@@ -21,7 +21,7 @@ def estimate_walk_speed(bot):
         prev_coordinate = curr_coordinate
         results.append(delta_distance)
         time.sleep(1)
-    keyboard_send_vk_as_scan_code(bot.hwnd, win32api.VkKeyScanEx('r', 0))
+    bot.ensure_walking_state(False)
     print(results)
 
 
