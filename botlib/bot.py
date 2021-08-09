@@ -11,103 +11,103 @@ from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, get_memo
 from waypointlib.routing import get_euclidean_distance, WaypointRouter
 
 address_descriptions = {
-    'mp': {
+    'mp': {  # Search MP directly
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x1CC,),
         'datatype': 'integer',
     },
 
-    'selection_dx': {
+    'selection_dx': {  # Get selection_dy then subtract 8
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x360,),
         'datatype': 'float',
     },
 
-    'selection_dy': {
+    'selection_dy': {  # Get selection_dz then subtract 8
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x368,),
         'datatype': 'float',
     },
 
-    'selection_dz': {
+    'selection_dz': {  # Get selection_distance then subtract 8
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x370,),
         'datatype': 'float',
     },
 
-    'selection_distance': {
+    'selection_distance': {  # Search increase/decrease with a target selected
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x378,),
         'datatype': 'float',
     },
 
-    'selection_acquired': {
+    'selection_acquired': {  # Use the pointer for selection_hp
         'base_address_offset': 0x01DB8140,
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
-    'selection_hp': {
+    'selection_hp': {  # Search unknown initial, then search decreased bv damaged amount
         'base_address_offset': 0x01DB8140,
         'pointer_offsets': (0x1C4,),
         'datatype': 'integer',
     },
 
-    'selection_max_hp': {
+    'selection_max_hp': {  # Get selection_hp then add 4
         'base_address_offset': 0x01DB8140,
         'pointer_offsets': (0x1C8,),
         'datatype': 'integer',
     },
 
-    'selection_mp': {
+    'selection_mp': {  # Get selection_max_hp then add 4
         'base_address_offset': 0x01DB8140,
         'pointer_offsets': (0x1CC,),
         'datatype': 'integer',
     },
 
-    'selection_max_mp': {
+    'selection_max_mp': {  # Get selection_mp then add 4
         'base_address_offset': 0x01DB8140,
         'pointer_offsets': (0x1D0,),
         'datatype': 'integer',
     },
 
-    'x': {
+    'x': {  # Search increased when walking to east, and decreased when walking to west
         'base_address_offset': 0x1DBBFD0,
         'pointer_offsets': (),
         'datatype': 'float',
     },
 
-    'y': {
+    'y': {  # Search increased when walking to south, and decreased when walking to north
         'base_address_offset': 0x1DBBFD8,
         'pointer_offsets': (),
         'datatype': 'float',
     },
 
-    'z': {
+    'z': {  # Get y then add 8
         'base_address_offset': 0x1DBBFE0,
         'pointer_offsets': (),
         'datatype': 'float',
     },
 
-    'x_complex': {
+    'x_complex': {  # East is close to 1.0, West is close to -1.0
         'base_address_offset': 0x01DAF9A8,
         'pointer_offsets': (0x18, 0xD4),
         'datatype': 'float',
     },
 
-    'y_complex': {
+    'y_complex': {  # North is close to 1.0, South is close to -1.0
         'base_address_offset': 0x01DAF9A8,
         'pointer_offsets': (0x18, 0xCC),
         'datatype': 'float',
     },
 
-    'is_autorun': {
+    'is_autorun': {  # Search 0 when not autorun, and 1 when autorun
         'base_address_offset': 0x01DB7F70,
         'pointer_offsets': (0x18C,),
         'datatype': 'integer',
     },
 
-    'is_cutscene': {
+    'is_cutscene': {  # Search 0 when not in cutscene (e.g. in dungeon cutscene), and 1 when in cutscene
         'base_address_offset': 0x1D69F68,
         'pointer_offsets': (),
         'datatype': 'integer',
