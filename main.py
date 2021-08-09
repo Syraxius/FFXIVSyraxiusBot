@@ -1,8 +1,122 @@
+import enum
+import time
+
 from botlib.bot import Bot
+from main_visualize import CRYSTAL, GATE, SHOP, BRASSBLADE, CACTUARS, SATASHA_START, SATASHA_END, TAMTARA_START, TAMTARA_END
+
+skills = {
+    'ice': {
+        'button': 1,
+        'delay': 2.5,
+        'recast': 2.5,
+    },
+    'fire': {
+        'button': 2,
+        'delay': 2.5,
+        'recast': 2.5,
+    },
+    'transpose': {
+        'button': 3,
+        'delay': 0.1,
+        'recast': 5,
+    },
+    'fire3': {
+        'button': 4,
+        'delay': 3.5,
+        'recast': 2.5,
+    },
+    'thunder': {
+        'button': 5,
+        'delay': 2.5,
+        'recast': 2.5,
+    },
+    'thunder2': {
+        'button': 6,
+        'delay': 3,
+        'recast': 2.5,
+    },
+    'luciddreaming': {
+        'button': 7,
+        'delay': 0.1,
+        'recast': 60,
+    },
+    'swiftcast': {
+        'button': 8,
+        'delay': 0.1,
+        'recast': 60,
+    },
+}
+
+
+class BlackMageAttackState(enum.Enum):
+    INITIATE = 1
+    ICE = 2
+    FIRE = 3
+    THUNDER = 4
+
+
+class BlackMageBot(Bot):
+    def __init__(self, mode, recording=None, navigation_target=None):
+        super(BlackMageBot, self).__init__(self.attack_blackmage, mode=mode, recording=recording, navigation_target=navigation_target)
+        self.skills = skills
+        self.skill_timestamp = {}
+        self.state_attack = BlackMageAttackState.INITIATE
+        self.swiftcast_active = False
+
+    def attack_blackmage(self):
+        if self.get_skill_is_cooldown('affinity'):
+            if self.mp < 2000:
+                self.state_attack = BlackMageAttackState.ICE
+            else:
+                self.state_attack = BlackMageAttackState.INITIATE
+
+        if self.state_attack == BlackMageAttackState.INITIATE:
+            if self.mp < 2000:
+                self.state_attack = BlackMageAttackState.ICE
+            self.cast('fire', swiftcast_active=self.swiftcast_active)
+            self.set_skill_cooldown('affinity', 15)
+            if self.swiftcast_active:
+                self.swiftcast_active = False
+            self.state_attack = BlackMageAttackState.FIRE
+
+        elif self.state_attack == BlackMageAttackState.FIRE:
+            if self.mp < 2000:
+                time.sleep(self.get_skill_cooldown_remaining('transpose'))
+                self.cast('transpose')
+                self.set_skill_cooldown('transpose', self.skills['transpose']['recast'])
+                self.set_skill_cooldown('affinity', 15)
+                self.state_attack = BlackMageAttackState.ICE  # THUNDER if needed
+                return
+            if self.get_skill_cooldown_remaining('luciddreaming') <= 0:
+                self.cast('luciddreaming')
+                self.set_skill_cooldown('luciddreaming', self.skills['luciddreaming']['recast'])
+            self.cast('fire')
+            self.set_skill_cooldown('affinity', 15)
+
+        elif self.state_attack == BlackMageAttackState.THUNDER:
+            self.cast('thunder2')
+            self.state_attack = BlackMageAttackState.ICE
+
+        elif self.state_attack == BlackMageAttackState.ICE:
+            if self.mp >= 8000:
+                # if self.get_skill_is_cooldown('swiftcast'):
+                #     self.cast('swiftcast')
+                #     self.set_skill_cooldown('swiftcast', self.skills['swiftcast']['recast'])
+                #     self.swiftcast_active = True
+                #     self.state_attack = BlackMageAttackState.INITIATE
+                #     return
+                if self.get_skill_is_cooldown('transpose'):
+                    self.cast('transpose')
+                    self.set_skill_cooldown('transpose', self.skills['transpose']['recast'])
+                    self.set_skill_cooldown('affinity', 15)
+                    self.state_attack = BlackMageAttackState.FIRE
+                    return
+            self.cast('ice')
+            self.set_skill_cooldown('affinity', 15)
 
 
 def main():
-    bot = Bot(mode='patrol')
+    bot = BlackMageBot(mode='dungeon', recording='recordings/tamtara1.json', navigation_target=TAMTARA_END)
     bot.start()
 
 

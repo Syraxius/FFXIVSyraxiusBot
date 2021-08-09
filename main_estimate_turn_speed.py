@@ -1,11 +1,7 @@
-from botlib.bot import Bot
-
 import math
 import time
 
-import win32api
-
-from botlib.control import keyboard_send_vk_as_scan_code
+from botlib.bot import Bot
 
 
 def estimate_turn_speed(bot):

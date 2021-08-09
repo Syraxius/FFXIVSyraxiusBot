@@ -8,7 +8,7 @@ import win32con
 
 from botlib.control import keyboard_send_vk_as_scan_code
 from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, get_memory_values
-from waypointlib.routing import get_euclidean_distance
+from waypointlib.routing import get_euclidean_distance, WaypointRouter
 
 address_descriptions = {
     'mp': {
@@ -17,10 +17,58 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
-    'distance_to_target': {
+    'selection_dx': {
+        'base_address_offset': 0x01DB8210,
+        'pointer_offsets': (0x360,),
+        'datatype': 'float',
+    },
+
+    'selection_dy': {
+        'base_address_offset': 0x01DB8210,
+        'pointer_offsets': (0x368,),
+        'datatype': 'float',
+    },
+
+    'selection_dz': {
+        'base_address_offset': 0x01DB8210,
+        'pointer_offsets': (0x370,),
+        'datatype': 'float',
+    },
+
+    'selection_distance': {
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x378,),
         'datatype': 'float',
+    },
+
+    'selection_acquired': {
+        'base_address_offset': 0x01DB8140,
+        'pointer_offsets': (),
+        'datatype': 'integer',
+    },
+
+    'selection_hp': {
+        'base_address_offset': 0x01DB8140,
+        'pointer_offsets': (0x1C4,),
+        'datatype': 'integer',
+    },
+
+    'selection_max_hp': {
+        'base_address_offset': 0x01DB8140,
+        'pointer_offsets': (0x1C8,),
+        'datatype': 'integer',
+    },
+
+    'selection_mp': {
+        'base_address_offset': 0x01DB8140,
+        'pointer_offsets': (0x1CC,),
+        'datatype': 'integer',
+    },
+
+    'selection_max_mp': {
+        'base_address_offset': 0x01DB8140,
+        'pointer_offsets': (0x1D0,),
+        'datatype': 'integer',
     },
 
     'x': {
@@ -51,110 +99,115 @@ address_descriptions = {
         'base_address_offset': 0x01DAF9A8,
         'pointer_offsets': (0x18, 0xCC),
         'datatype': 'float',
-    }
-}
+    },
 
-spells = {
-    'ice': {
-        'button': 1,
-        'delay': 2.5,
-        'recast': 2.5,
+    'is_autorun': {
+        'base_address_offset': 0x01DB7F70,
+        'pointer_offsets': (0x18C,),
+        'datatype': 'integer',
     },
-    'fire': {
-        'button': 2,
-        'delay': 2.5,
-        'recast': 2.5,
-    },
-    'transpose': {
-        'button': 3,
-        'delay': 0.5,
-        'recast': 5,
-    },
-    'fire3': {
-        'button': 4,
-        'delay': 3.5,
-        'recast': 2.5,
-    },
-    'thunder': {
-        'button': 5,
-        'delay': 2.5,
-        'recast': 2.5,
-    },
-    'thunder2': {
-        'button': 6,
-        'delay': 3,
-        'recast': 2.5,
-    },
-    'luciddreaming': {
-        'button': 7,
-        'delay': 0.5,
-        'recast': 60,
-    },
-    'swiftcast': {
-        'button': 8,
-        'delay': 0.5,
-        'recast': 60,
-    },
+
+    'is_cutscene': {
+        'base_address_offset': 0x1D69F68,
+        'pointer_offsets': (),
+        'datatype': 'integer',
+    }
 }
 
 
 class OverallState(enum.Enum):
-    RETURNING = 1
-    ACQUIRING = 2
-    APPROACHING = 3
-    ATTACKING = 4
+    ACQUIRING_TEAMMATE = 1
+    NAVIGATING_TEAMMATE = 2
+    ACQUIRING_ENEMY = 3
+    NAVIGATING_ENEMY = 4
+    NAVIGATING_LAST_MILE = 5
+    ATTACKING = 6
 
 
-class BlackMageAttackState(enum.Enum):
-    INITIATE = 1
-    ICE = 2
-    FIRE = 3
-    THUNDER = 4
+class SelectionType(enum.Enum):
+    ENEMY_ENGAGED = 0
+    ENEMY_HOSTILE_SELF = 63
+    ENEMY_HOSTILE_OTHERS = 64
+    ENEMY_IDLE = 79
+    NPC_FRIENDLY = 93
+    PLAYER_TEAM = 9961552
+    PLAYER_OTHERS = 5046330
 
 
 class Bot:
-    def __init__(self, mode='patrol'):
+    def __init__(self, attack=None, mode='patrol', recording=None, navigation_target=None):
         winlist = get_winlist()
         self.hwnd = get_hwnd('FINAL FANTASY XIV', winlist)
         self.base_address = get_hwnd_base_address(self.hwnd)
 
         self.mp = 0
-        self.distance_to_target = 0
-        self.is_target_selected = False
         self.x = 0
         self.y = 0
         self.z = 0
         self.x_complex = 0
         self.y_complex = 0
+        self.selection_dx = 0
+        self.selection_dy = 0
+        self.selection_dz = 0
+        self.selection_x = 0
+        self.selection_y = 0
+        self.selection_z = 0
+        self.selection_distance = 0
+        self.selection_acquired = False
+        self.selection_hp = 0
+        self.is_autorun = False
+        self.is_cutscene = False
         self.scan()
         self.init_x = self.x
         self.init_y = self.y
         self.init_z = self.z
 
-        self.state_overall = OverallState.RETURNING
-        self.attack = self.attack_blackmage
-        self.state_attack = BlackMageAttackState.INITIATE
-        self.is_autorun = False
-        self.swiftcast_active = False
-        self.skill_timestamp = {}
+        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+        self.attack = attack
 
+        self.max_distance_to_teammate = 5
         self.max_distance_to_target = 10
-        self.max_patrol_distance = 30
-        self.mode = mode  # 'patrol', 'dungeon_follow', 'assist_autotarget', 'assist'
-        if self.mode == 'dungeon_follow':
-            self.max_distance_to_target = 10
-        else:
-            self.max_distance_to_target = 25
+        self.max_distance_to_target_high = 20
+        self.mode = mode  # 'assist_autotarget', 'assist'
+
+        self.shortest_path = []
+        self.next_coordinate = None
+        self.w = None
+        self.navigation_target = navigation_target
+        if recording:
+            self.w = WaypointRouter(recording)
+            self.init_routing_target(self.navigation_target)
+
+        self.last_message = ''
+
+    def debounced_print(self, message):
+        if self.last_message != message:
+            print(message)
+        self.last_message = message
 
     def scan(self):
-        self.mp = get_memory_values(self.hwnd, self.base_address, address_descriptions['mp'])
-        self.x = get_memory_values(self.hwnd, self.base_address, address_descriptions['x'])
-        self.y = get_memory_values(self.hwnd, self.base_address, address_descriptions['y'])
-        self.z = get_memory_values(self.hwnd, self.base_address, address_descriptions['z'])
-        self.x_complex = get_memory_values(self.hwnd, self.base_address, address_descriptions['x_complex'])
-        self.y_complex = get_memory_values(self.hwnd, self.base_address, address_descriptions['y_complex'])
-        self.distance_to_target = get_memory_values(self.hwnd, self.base_address, address_descriptions['distance_to_target'])
-        self.is_target_selected = self.distance_to_target != 0
+        self.mp = get_memory_values(self.hwnd, 'mp', self.base_address, address_descriptions['mp'])
+        self.x = get_memory_values(self.hwnd, 'x', self.base_address, address_descriptions['x'])
+        self.y = get_memory_values(self.hwnd, 'y', self.base_address, address_descriptions['y'])
+        self.z = get_memory_values(self.hwnd, 'z', self.base_address, address_descriptions['z'])
+        self.x_complex = get_memory_values(self.hwnd, 'x_complex', self.base_address, address_descriptions['x_complex'])
+        self.y_complex = get_memory_values(self.hwnd, 'y_complex', self.base_address, address_descriptions['y_complex'])
+        self.selection_dx = get_memory_values(self.hwnd, 'selection_dx', self.base_address, address_descriptions['selection_dx'])
+        self.selection_dy = get_memory_values(self.hwnd, 'selection_dy', self.base_address, address_descriptions['selection_dy'])
+        self.selection_dz = get_memory_values(self.hwnd, 'selection_dz', self.base_address, address_descriptions['selection_dz'])
+        self.selection_x = self.x + self.selection_dx
+        self.selection_y = self.y + self.selection_dy
+        self.selection_z = self.z + self.selection_dz
+        self.selection_distance = get_memory_values(self.hwnd, 'selection_distance', self.base_address, address_descriptions['selection_distance'])
+        self.selection_acquired = get_memory_values(self.hwnd, 'selection_acquired', self.base_address, address_descriptions['selection_acquired']) != 0
+        self.selection_hp = get_memory_values(self.hwnd, 'selection_hp', self.base_address, address_descriptions['selection_hp'])
+        self.selection_max_hp = get_memory_values(self.hwnd, 'selection_max_hp', self.base_address, address_descriptions['selection_max_hp'])
+        self.selection_mp = get_memory_values(self.hwnd, 'selection_mp', self.base_address, address_descriptions['selection_mp'])
+        self.selection_max_mp = get_memory_values(self.hwnd, 'selection_max_mp', self.base_address, address_descriptions['selection_max_mp'])
+        self.selection_is_enemy = self.selection_max_mp < 10000
+        self.selection_is_damaged = self.selection_hp != self.selection_max_hp
+        self.is_autorun = get_memory_values(self.hwnd, 'is_autorun', self.base_address, address_descriptions['is_autorun'])
+        self.is_cutscene = get_memory_values(self.hwnd, 'is_cutscene', self.base_address, address_descriptions['is_cutscene'])
 
     def get_current_coordinate(self):
         return [self.x, self.y, self.z]
@@ -177,25 +230,27 @@ class Bot:
         if is_walking:
             if not self.is_autorun:
                 keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
-                self.is_autorun = True
         elif not is_walking:
             if self.is_autorun:
                 keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
-                self.is_autorun = False
 
-    def get_turn_duration(self, radians):
+    def get_turn_duration(self, radians, ensure_nonnegative=True):
         # Delta Radians = 2.65 * Turn Duration + 0.0142
         # Delta Radians = 2.4 * Turn Duration + 0.055
         # Why different?
         turn_speed = 2.4  # rad/s
         turn_min_amount = 0.055  # rad
         turn_duration = (abs(radians) - turn_min_amount) / turn_speed
-        if turn_duration < 0:
-            turn_duration = 0
+        if ensure_nonnegative:
+            if turn_duration < 0:
+                turn_duration = 0
         return turn_duration
 
-    def turn_by_radians(self, direction, radians):
-        turn_duration = self.get_turn_duration(radians)
+    def turn_by_radians(self, direction, radians, ensure_minimum=True):
+        turn_duration = self.get_turn_duration(radians, ensure_nonnegative=False)
+        if ensure_minimum:
+            if turn_duration < 0:
+                return
         self.turn_by_duration(direction, turn_duration)
 
     def turn_by_duration(self, direction, turn_duration):
@@ -223,14 +278,21 @@ class Bot:
         direction_delta = abs(final_direction)
         return distance_delta, direction_delta, is_turn_left
 
-    def cast(self, spell_name, swiftcast_active=False):
-        print('Casting %s' % spell_name)
-        spell = spells[spell_name]
-        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(spell['button']), 0))
-        if swiftcast_active:
-            time.sleep(spell['recast'])
+    def turn_to_target(self, target_x, target_y):
+        distance_delta, direction_delta, is_turn_left = self.calculate_navigation(target_x, target_y)
+        if is_turn_left:
+            self.turn_by_radians('left', direction_delta)
         else:
-            time.sleep(spell['delay'])
+            self.turn_by_radians('right', direction_delta)
+
+    def cast(self, skill_name, swiftcast_active=False):
+        print('Using %s' % skill_name)
+        skill = self.skills[skill_name]
+        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx(str(skill['button']), 0))
+        if swiftcast_active:
+            time.sleep(skill['recast'])
+        else:
+            time.sleep(skill['delay'])
 
     def set_skill_cooldown(self, skill, cooldown):
         self.skill_timestamp[skill] = (time.time(), cooldown)
@@ -242,170 +304,256 @@ class Bot:
     def get_skill_is_cooldown(self, skill):
         return self.get_skill_cooldown_remaining(skill) <= 0
 
-    def attack_blackmage(self):
-        if self.get_skill_is_cooldown('affinity'):
-            if self.mp < 2000:
-                self.state_attack = BlackMageAttackState.ICE
-            else:
-                self.state_attack = BlackMageAttackState.INITIATE
+    def get_nearest_enemy(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F11)  # Hotkey for targeting nearest enemy (in view)
 
-        if self.state_attack == BlackMageAttackState.INITIATE:
-            if self.mp < 2000:
-                self.state_attack = BlackMageAttackState.ICE
-            self.cast('fire3', swiftcast_active=self.swiftcast_active)
-            self.set_skill_cooldown('affinity', 15)
-            if self.swiftcast_active:
-                self.swiftcast_active = False
-            self.state_attack = BlackMageAttackState.FIRE
+    def get_tank(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F2)  # Hotkey for targeting tank member
 
-        elif self.state_attack == BlackMageAttackState.FIRE:
-            if self.mp < 2000:
-                time.sleep(self.get_skill_cooldown_remaining('transpose'))
-                self.cast('transpose')
-                self.set_skill_cooldown('transpose', spells['transpose']['recast'])
-                self.set_skill_cooldown('affinity', 15)
-                self.state_attack = BlackMageAttackState.THUNDER
-                return
-            if self.get_skill_cooldown_remaining('luciddreaming') <= 0:
-                self.cast('luciddreaming')
-                self.set_skill_cooldown('luciddreaming', spells['luciddreaming']['recast'])
-            self.cast('fire')
-            self.set_skill_cooldown('affinity', 15)
+    def get_tank_target(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F2)  # Hotkey for targeting tank member
+        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('t', 0))
 
-        elif self.state_attack == BlackMageAttackState.THUNDER:
-            self.cast('thunder2')
-            self.state_attack = BlackMageAttackState.ICE
+    def skip_cutscene(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_ESCAPE)  # Hotkey for opening skip menu
+        time.sleep(0.1)
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_NUMPAD0)  # Hotkey for selecting confirm
+        time.sleep(0.1)
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_NUMPAD0)  # Hotkey for confirming
 
-        elif self.state_attack == BlackMageAttackState.ICE:
-            if self.mp >= 8000:
-                if self.get_skill_is_cooldown('swiftcast'):
-                    self.cast('swiftcast')
-                    self.set_skill_cooldown('swiftcast', spells['swiftcast']['recast'])
-                    self.swiftcast_active = True
-                    self.state_attack = BlackMageAttackState.INITIATE
-                    return
-                if self.get_skill_is_cooldown('transpose'):
-                    self.cast('transpose')
-                    self.set_skill_cooldown('transpose', spells['transpose']['recast'])
-                    self.set_skill_cooldown('affinity', 15)
-                    self.state_attack = BlackMageAttackState.FIRE
-                    return
-            self.cast('ice')
-            self.set_skill_cooldown('affinity', 15)
+    def cancel_routing_target(self, continue_walking=False):
+        if not self.w:
+            return
+        self.shortest_path = []
+        self.next_coordinate = None
+        if not continue_walking:
+            self.ensure_walking_state(False)
+
+    def init_routing_target(self, target_coordinate, continue_walking=False):
+        if not self.w:
+            return
+        self.cancel_routing_target(continue_walking=continue_walking)
+        a = self.get_current_coordinate()
+        b = target_coordinate
+        self.shortest_path = self.w.get_shortest_path_coordinates(a, b)
+
+    def walk_to_routing_target(self, target_coordinate=None):
+        if self.next_coordinate is None:
+            if len(self.shortest_path) == 0:
+                if target_coordinate:
+                    self.init_routing_target(target_coordinate, continue_walking=True)
+                    return True
+                else:
+                    self.ensure_walking_state(False)
+                    return False
+            self.next_coordinate = self.shortest_path.pop(0)
+        distance_delta, direction_delta, is_turn_left = self.calculate_navigation(self.next_coordinate[0], self.next_coordinate[1])
+        if distance_delta < 1:
+            self.next_coordinate = None
+        else:
+            turn_duration = self.get_turn_duration(direction_delta)
+            if turn_duration > 0.3:
+                self.ensure_walking_state(False)
+            if turn_duration > 0:
+                if is_turn_left:
+                    self.turn_by_duration('left', turn_duration)
+                else:
+                    self.turn_by_duration('right', turn_duration)
+            self.ensure_walking_state(True)
+        return True
 
     def start(self):
-        is_autorun = False
+        if self.mode == 'dungeon':
+            self.state_overall = OverallState.ACQUIRING_TEAMMATE
+            self.start_dungeon()
+        elif self.mode == 'assist':
+            self.state_overall = OverallState.ACQUIRING_ENEMY
+            self.start_assist(autotarget=False, autoapproach=False)
+        elif self.mode == 'assist_autotarget':
+            self.state_overall = OverallState.ACQUIRING_ENEMY
+            self.start_assist(autotarget=True, autoapproach=False)
+        elif self.mode == 'assist_autotarget_autoapproach':
+            self.start_assist(autotarget=True, autoapproach=True)
+            self.state_overall = OverallState.ACQUIRING_ENEMY
+        elif self.mode == 'assist_autoapproach':
+            self.start_assist(autotarget=False, autoapproach=True)
+            self.state_overall = OverallState.ACQUIRING_ENEMY
 
-        last_x = self.x
-        last_y = self.y
-        last_state = None
-        acquiring_timestamp = None
+    def start_assist(self, autotarget=False, autoapproach=False):
+        record_timestamp = time.time()
+        coordinates = []
+        try:
+            while True:
+                self.scan()
 
-        while True:
-            self.scan()
+                if time.time() - record_timestamp > 0.1:
+                    coordinates.append((self.x, self.y, self.z))
+                    record_timestamp = time.time()
 
-            distance_delta, direction_delta, is_turn_left = self.calculate_navigation(self.init_x, self.init_y)
-            delta_y = self.y - last_y
-            delta_x = self.x - last_x
-            distance_delta_last = math.sqrt((delta_x * delta_x) + (delta_y * delta_y))
-            last_x = self.x
-            last_y = self.y
+                if self.state_overall == OverallState.ACQUIRING_ENEMY:
+                    if self.selection_acquired:
+                        self.debounced_print('Selection acquired. Navigating to enemy')
+                        self.state_overall = OverallState.NAVIGATING_ENEMY
+                        continue
+                    if autotarget:
+                        self.debounced_print('No selection. Attempting to select enemy')
+                        self.get_nearest_enemy()
+                    time.sleep(0.1)
 
-            if self.state_overall != last_state:
-                print(self.state_overall)
-            last_state = self.state_overall
+                elif self.state_overall == OverallState.NAVIGATING_ENEMY:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to acquire enemy')
+                        self.ensure_walking_state(False)
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        continue
+                    if self.selection_distance < self.max_distance_to_target_high:
+                        self.debounced_print('Enemy in range. Attempting to attack')
+                        self.ensure_walking_state(False)
+                        self.state_overall = OverallState.ATTACKING
+                        continue
+                    if autoapproach:
+                        self.debounced_print('Enemy out of range range. Attempting to approach enemy')
+                        self.turn_to_target(self.selection_x, self.selection_y)
+                        self.ensure_walking_state(True)
+                    time.sleep(0.1)
 
-            if self.state_overall == OverallState.RETURNING:
-                if self.mode != 'patrol':
-                    self.state_overall = OverallState.ACQUIRING
-                    acquiring_timestamp = time.time()
+                elif self.state_overall == OverallState.ATTACKING:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to acquire enemy')
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        continue
+                    if self.selection_distance > self.max_distance_to_target_high:
+                        self.debounced_print('Enemy out of range. Attempting to acquire enemy')
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        continue
+                    self.debounced_print('Enemy in range. Attacking!')
+                    self.attack()
+        finally:
+            filename = 'recording%s.json' % (int(time.time() * 1000))
+            with open(filename, 'w') as f:
+                print('Writing %s waypoints to %s' % (len(coordinates), filename))
+                f.write(json.dumps(coordinates))
+
+    def start_dungeon(self):
+        record_timestamp = time.time()
+        coordinates = []
+        try:
+            last_state = None
+            while True:
+                self.scan()
+
+                if time.time() - record_timestamp > 0.1:
+                    coordinates.append((self.x, self.y, self.z))
+                    record_timestamp = time.time()
+
+                if self.is_cutscene:
+                    self.skip_cutscene()
+                    time.sleep(5)
                     continue
-                if distance_delta < 3:
-                    self.state_overall = OverallState.ACQUIRING
-                    acquiring_timestamp = time.time()
-                    if is_autorun:
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                        is_autorun = False
-                    continue
-                if abs(direction_delta) > 0.088:
-                    if is_autorun:
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                        is_autorun = False
-                    turn_speed = 2.8  # rad/s
-                    turn_duration = abs(direction_delta) / turn_speed
-                    if is_turn_left:
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('a', 0), action='hold', duration=turn_duration)  # Hotkey for turn left
-                    else:
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('d', 0), action='hold', duration=turn_duration)  # Hotkey for turn left
-                if distance_delta_last < 0.1 and is_autorun:
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_SPACE)  # Hotkey for jump
-                if not is_autorun:
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                    is_autorun = True
-                time.sleep(0.2)
 
-            elif self.state_overall == OverallState.ACQUIRING:
-                if self.is_target_selected:
-                    self.state_overall = OverallState.APPROACHING
-                    continue
-                if self.mode == 'dungeon_follow':
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('9', 0))  # Hotkey for following focused
-                if self.mode == 'patrol' or self.mode == 'dungeon_follow' or self.mode == 'assist_autotarget':
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F11)  # Hotkey for targeting nearest enemy
-                time.sleep(0.2)
-                if self.mode == 'patrol':
-                    if time.time() - acquiring_timestamp > 5:
-                        turn_duration = math.pi / 2 / 2.65
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('d', 0), action='hold', duration=turn_duration)  # Hotkey for turn left
-                        acquiring_timestamp = time.time()
-                    if distance_delta > self.max_patrol_distance:
-                        self.state_overall = OverallState.RETURNING
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F1)  # Hotkey for targeting self, acting as a deselect
+                if self.state_overall != last_state:
+                    print(self.state_overall)
+                last_state = self.state_overall
 
-            elif self.state_overall == OverallState.APPROACHING:
-                if not self.is_target_selected:
-                    self.state_overall = OverallState.ACQUIRING
-                    acquiring_timestamp = time.time()
-                    if is_autorun:
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                        is_autorun = False
-                    continue
-                if self.distance_to_target < self.max_distance_to_target:
+                if self.state_overall == OverallState.ACQUIRING_TEAMMATE:
+                    if self.selection_acquired:
+                        self.debounced_print('Selection acquired. Navigating to teammate')
+                        self.init_routing_target([self.selection_x, self.selection_y])
+                        self.state_overall = OverallState.NAVIGATING_TEAMMATE
+                    self.debounced_print('No selection. Attempting to select teammate and continue navigation')
+                    self.get_tank()
+                    is_continue_walking = self.walk_to_routing_target()
+                    if not is_continue_walking:
+                        self.debounced_print('Reached overall destination!')
+                        break
+                    time.sleep(0.05)
+
+                elif self.state_overall == OverallState.NAVIGATING_TEAMMATE:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to select teammate')
+                        self.get_tank()
+                        self.init_routing_target(self.navigation_target)
+                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        continue
+                    if self.selection_distance < self.max_distance_to_teammate:
+                        self.debounced_print('Teammate in range. Attempting to select enemy')
+                        self.cancel_routing_target()
+                        self.get_tank_target()
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    self.debounced_print('Continue navigation towards teammate')
+                    is_continue_walking = self.walk_to_routing_target([self.selection_x, self.selection_y])
+                    if not is_continue_walking:
+                        self.init_routing_target([self.selection_x, self.selection_y], continue_walking=True)
+                        continue
+                    time.sleep(0.05)
+
+                elif self.state_overall == OverallState.ACQUIRING_ENEMY:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to select teammate')
+                        self.get_tank()
+                        self.init_routing_target(self.navigation_target)
+                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        continue
+                    if not (self.selection_is_enemy and self.selection_is_damaged):
+                        self.debounced_print('Selection is not a damaged enemy. Attempting to select teammate')
+                        self.get_tank()
+                        self.init_routing_target(self.navigation_target)
+                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        continue
+                    self.state_overall = OverallState.NAVIGATING_ENEMY
+
+                elif self.state_overall == OverallState.NAVIGATING_ENEMY:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to select enemy')
+                        self.get_tank_target()
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    if not (self.selection_is_enemy and self.selection_is_damaged):
+                        self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
+                        self.get_tank_target()
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    if self.selection_distance > self.max_distance_to_target_high:
+                        self.debounced_print('Enemy out of range. Attempting to select teammate')
+                        self.get_tank()
+                        self.init_routing_target(self.navigation_target)
+                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        continue
+                    self.debounced_print('Enemy in range. Attempting to attack')
                     self.state_overall = OverallState.ATTACKING
-                    if is_autorun:
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                        is_autorun = False
-                    continue
-                keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('f', 0))  # Hotkey for face
-                if distance_delta_last < 0.1 and is_autorun:
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_SPACE)  # Hotkey for jump
-                if not is_autorun:
-                    keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                    is_autorun = True
-                time.sleep(0.2)
-                if self.mode == 'patrol':
-                    if distance_delta > self.max_patrol_distance:
-                        self.state_overall = OverallState.RETURNING
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F1)  # Hotkey for targeting self, acting as a deselect
-                        if is_autorun:
-                            keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))  # Hotkey for autorun
-                            is_autorun = False
 
-            elif self.state_overall == OverallState.ATTACKING:
-                if not self.is_target_selected:
-                    self.state_overall = OverallState.ACQUIRING
-                    acquiring_timestamp = time.time()
-                    continue
-                if self.distance_to_target > self.max_distance_to_target:
-                    self.state_overall = OverallState.APPROACHING
-                    continue
-                self.attack()
-                if self.mode == 'patrol':
-                    if distance_delta > self.max_patrol_distance:
-                        self.state_overall = OverallState.RETURNING
-                        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F1)  # Hotkey for targeting self, acting as a deselect
+                elif self.state_overall == OverallState.ATTACKING:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to select enemy')
+                        self.get_tank_target()
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    if not (self.selection_is_enemy and self.selection_is_damaged):
+                        self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
+                        self.get_tank_target()
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    if self.selection_distance > self.max_distance_to_target_high:
+                        self.debounced_print('Enemy out of range. Attempting to select enemy')
+                        self.get_tank_target()
+                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    self.debounced_print('Enemy in range. Attacking!')
+                    self.attack()
+        finally:
+            filename = 'recording%s.json' % (int(time.time() * 1000))
+            with open(filename, 'w') as f:
+                print('Writing %s waypoints to %s' % (len(coordinates), filename))
+                f.write(json.dumps(coordinates))
 
-    def record(self, interval='0.1'):
+    def record(self, interval=0.1):
         coordinates = []
         try:
             while True:

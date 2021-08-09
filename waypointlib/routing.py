@@ -1,13 +1,11 @@
-import json
 from queue import PriorityQueue
-from .optimize import generate_optimized_adjacency_list, get_euclidean_distance, print_adjacency_list
 
-from .visualize import visualize_coordinates
+from .optimize import generate_optimized_adjacency_list_from_file, get_euclidean_distance
 
 
 class WaypointRouter:
-    def __init__(self, coordinates):
-        self.adjacency_list = generate_optimized_adjacency_list(coordinates)
+    def __init__(self, recording):
+        self.adjacency_list = generate_optimized_adjacency_list_from_file(recording)
 
     def get_closest_adjacency_list_node(self, coordinate):
         closest_adjacency_list_node = None
@@ -33,17 +31,17 @@ class WaypointRouter:
         parent[nearest_adjacency_list_node_a.index] = nearest_adjacency_list_node_a.index
         distance[nearest_adjacency_list_node_a.index] = 0
         pq = PriorityQueue()
-        pq.put((0, nearest_adjacency_list_node_a))
+        pq.put((0, nearest_adjacency_list_node_a.index, nearest_adjacency_list_node_a))
         while pq:
             # print(parent)
-            curr_distance, curr_node = pq.get()
+            curr_distance, _, curr_node = pq.get()
             for neighbor in curr_node.neighbors:
                 neighbor_node = self.adjacency_list[neighbor]
                 curr_neighbor_distance = curr_distance + get_euclidean_distance(curr_node.coordinate, neighbor_node.coordinate)
                 if curr_neighbor_distance < distance[neighbor_node.index]:
                     parent[neighbor_node.index] = curr_node.index
                     distance[neighbor_node.index] = curr_neighbor_distance
-                    pq.put((curr_neighbor_distance, neighbor_node))
+                    pq.put((curr_neighbor_distance, neighbor_node.index, neighbor_node))
             if parent[nearest_adjacency_list_node_b.index] != -1:
                 break
         if parent[nearest_adjacency_list_node_b.index] != -1:

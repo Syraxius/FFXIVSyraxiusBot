@@ -1,8 +1,10 @@
 import json
 import math
+import os
+import pickle
 
 debouncing_distance = 0.1
-connecting_distance = 6
+connecting_distance = 3
 
 
 def get_euclidean_distance(coordinate_a, coordinate_b):
@@ -45,15 +47,19 @@ class AdjacencyListNode:
 
 def generate_adjacency_list(coordinates):
     adjacency_list = []
+    prev_adjacency_list_node = None
     for index in range(len(coordinates)):
         coordinate = coordinates[index]
         curr_adjacency_list_node = AdjacencyListNode(index, coordinate)
+        if prev_adjacency_list_node:
+            prev_adjacency_list_node.link_to(curr_adjacency_list_node)
         for other_adjacency_list_node in adjacency_list:
             curr_distance = get_euclidean_distance(curr_adjacency_list_node.coordinate, other_adjacency_list_node.coordinate)
             # print('%s->%s = %s' % (curr_adjacency_list_node.index, other_adjacency_list_node.index, curr_distance))
             if curr_distance < connecting_distance:
                 curr_adjacency_list_node.link_to(other_adjacency_list_node)
         adjacency_list.append(curr_adjacency_list_node)
+        prev_adjacency_list_node = curr_adjacency_list_node
     return adjacency_list
 
 
@@ -65,4 +71,18 @@ def print_adjacency_list(adjacency_list):
 def generate_optimized_adjacency_list(coordinates):
     debounced_coordinates = debounce_coordinates(coordinates)
     adjacency_list = generate_adjacency_list(debounced_coordinates)
+    return adjacency_list
+
+
+def generate_optimized_adjacency_list_from_file(recording):
+    cache = '%s.cache' % recording
+    if os.path.isfile(cache):
+        with open(cache, 'rb') as f:
+            adjacency_list = pickle.load(f)
+        return adjacency_list
+    with open(recording) as f:
+        coordinates = json.loads(f.read())
+    adjacency_list = generate_optimized_adjacency_list(coordinates)
+    with open(cache, 'wb') as f:
+        pickle.dump(adjacency_list, f)
     return adjacency_list
