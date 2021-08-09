@@ -77,6 +77,8 @@ Run `main_walk.py` to walk your character between the waypoints nearest to the c
 
 ### Assist
 
+<img src="./readme_resources/assist.png" />
+
 Modify `main.py` and change `mode` to the following:
 - `assist` - Automatically run attack combo when your selected target is in range
 - `assist_autotarget` - Automatically select nearest enemy and run attack combo when in range
