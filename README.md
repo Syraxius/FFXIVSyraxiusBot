@@ -16,26 +16,30 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 
 # Features
 
-- Navigation:
-  - Waypoints record
+- Navigation engine
+  - Waypoints recording
   - Waypoints visualization
   - Waypoints optimization
   - Waypoints conversion from sequential to connected graph (adjacency list)
   - Shortest path routing between any two points (SSSP using Dijkstra's algorithm)
   - Human-like in-game character control
-- Combat automation:
-  - State machine and memory reading combat automation
-  - Black Mage automatic optimal fire / blizzard combo + buffs
-  - Other classes combo still WIP
-- Gameplay automation:
+- Memory-reading engine
+  - Obtain information like HP, MP, coordinates, target information, and more directly from game engine.
+- Combat automation engine
+  - Assist
+    - Memory-reading and state-machine based combat automation
+    - Black Mage automatic optimal fire / blizzard combo + buffs
+    - Other classes combo still WIP
+- Gameplay automation engine
   - Dungeon
+    - Memory-reading and state-machine based gameplay automation
     - Waypoint-based navigation - doesn't rely on follow function
     - Human-like movement and fighting
     - Progress through dungeon with the team without running ahead
     - Automatically engage only aggro'ed monsters
     - Automatically skip cutscenes
-- Memory reading:
-  - Relies on memory reading to obtain information like HP, MP, coordinates, target information, and more.
+- Others
+  - Control game even when game is minimized
 
 # Waypoints
 
