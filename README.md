@@ -24,7 +24,8 @@ Experimental bot for FFXIV. Still largely WIP.
   - Shortest path routing between any two points (SSSP using Dijkstra's algorithm)
   - Human-like in-game character control
 - Combat automation:
-  - BlackMage automatic optimal ice/fire combo
+  - State machine and memory reading combat automation
+  - Black Mage automatic optimal fire / blizzard combo + buffs
   - Other classes combo still WIP
 - Gameplay automation:
   - Dungeon
