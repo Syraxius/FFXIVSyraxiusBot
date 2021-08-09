@@ -1,5 +1,5 @@
-# FFXIVSyraxiusBot
-Experimental bot for FFXIV. Still largely WIP.
+# FFXIV Syraxius Bot
+Experimental bot for Final Fantasy XIV. Still largely WIP.
 
 # Disclaimer:
 - This software is for educational purposes only
