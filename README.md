@@ -72,9 +72,13 @@ Modify `main.py` and change `mode` to the following:
 - `assist_autotarget_autoapproach` - Automatically select nearest enemy, approach, and attack when in range
 - `assist_autoapproach` - Automatically approach your selected enemy and attack when in range
 
+Update the dictionary of `spells` accordingly (or move your own hotbar to match).
+
 Run `main.py` and have fun!
 
 ## Dungeon
+
+Note: The `assist` modes above need to be working before trying out `dungeon` mode.
 
 Modify `main.py` with the following changes:
 - Change `mode` to `dungeon`
