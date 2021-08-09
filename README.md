@@ -1,5 +1,18 @@
 # FFXIVSyraxiusBot
-Experimental bot for FFXIV. Still WIP.
+Experimental bot for FFXIV. Still largely WIP.
+
+# Disclaimer:
+- This software is for educational purposes only
+- Hacking is illegal and it violates FFXIV's terms of use
+- I am not responsible for any consequence resulting from the use of this software
+
+# Installation (for Windows):
+- Clone this repository (or download this repository and extract it somewhere)
+- Install Python 3.9 from https://www.python.org/
+- Create a Python 3.9 virtual environment in this folder using `python3 -m venv venv`
+- Activate your virtual environment using `cd venv/Scripts && activate`
+- Install requirements listed in requirements.txt using `pip install -r requirements.txt`
+- (Personally, I just use PyCharm IDE for all these)
 
 # Features
 
