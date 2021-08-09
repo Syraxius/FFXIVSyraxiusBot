@@ -33,6 +33,8 @@ Experimental bot for FFXIV. Still largely WIP.
     - Progress through dungeon with the team without running ahead
     - Automatically engage only aggro'ed monsters
     - Automatically skip cutscenes
+- Memory reading:
+  - Relies on memory reading to obtain information like HP, MP, coordinates, target information, and more.
 
 # Waypoints
 
