@@ -93,6 +93,8 @@ Run `main.py` and have fun!
 
 ### Dungeon
 
+<img src="./readme_resources/dungeon.png" />
+
 Note: The `assist` modes above need to be working before trying out `dungeon` mode.
 
 Modify `main.py` with the following changes:
