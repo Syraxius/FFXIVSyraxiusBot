@@ -19,16 +19,18 @@ Experimental bot for FFXIV. Still largely WIP.
 - Navigation:
   - Waypoints record
   - Waypoints visualization
-  - Shortest path routing (Dijkstra)
+  - Waypoints optimization
+  - Waypoints conversion from sequential to connected graph (adjacency list)
+  - Shortest path routing between any two points (SSSP using Dijkstra's algorithm)
   - Human-like in-game character control
 - Combat automation:
   - BlackMage automatic optimal ice/fire combo
   - Other classes combo still WIP
 - Gameplay automation:
   - Dungeon
-    - Waypoint-based navigation
+    - Waypoint-based navigation - doesn't rely on follow function
     - Human-like movement and fighting
-    - Progress through dungeon with the team
+    - Progress through dungeon with the team without running ahead
     - Automatically engage only aggro'ed monsters
     - Automatically skip cutscenes
 
@@ -64,19 +66,23 @@ Run `main_walk.py` to walk your character between the waypoints nearest to the c
 
 (Note that all modes also automatically dump a waypoint recording for use later)
 
-## Combat assistance
+## Combat automation
+
+### Assist
 
 Modify `main.py` and change `mode` to the following:
-- `assist` - Run attack combo when target selected and within range
-- `assist_autotarget` - Automatically select nearest enemy and attack if in range
-- `assist_autotarget_autoapproach` - Automatically select nearest enemy, approach, and attack when in range
-- `assist_autoapproach` - Automatically approach your selected enemy and attack when in range
+- `assist` - Automatically run attack combo when your selected target is in range
+- `assist_autotarget` - Automatically select nearest enemy and run attack combo when in range
+- `assist_autoapproach` - Automatically approach your selected enemy and run attack combo when in range
+- `assist_autotarget_autoapproach` - Automatically select nearest enemy, approach, and run attack combo when in range
 
 Update the dictionary of `spells` accordingly (or move your own hotbar to match).
 
 Run `main.py` and have fun!
 
-## Dungeon
+## Gameplay automation
+
+### Dungeon
 
 Note: The `assist` modes above need to be working before trying out `dungeon` mode.
 
