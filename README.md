@@ -77,6 +77,8 @@ Run `main_walk.py` to walk your character between the waypoints nearest to the c
 
 ### Assist
 
+Automates attack combos for your character, leaving you free to make other decisions.
+
 <img src="./readme_resources/assist.png" />
 
 Modify `main.py` and change `mode` to the following:
@@ -92,6 +94,8 @@ Run `main.py` and have fun!
 ## Gameplay automation
 
 ### Dungeon
+
+Automates dungeon runs with human-like navigation and fighting.
 
 <img src="./readme_resources/dungeon.png" />
 
