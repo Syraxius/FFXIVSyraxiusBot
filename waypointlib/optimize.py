@@ -3,8 +3,8 @@ import math
 import os
 import pickle
 
-debouncing_distance = 0.1
-connecting_distance = 3
+debouncing_distance = 0.01
+connecting_distance = 6
 
 
 def get_euclidean_distance(coordinate_a, coordinate_b):
@@ -45,12 +45,16 @@ class AdjacencyListNode:
         other_node.neighbors.add(self.index)
 
 
-def generate_adjacency_list(coordinates):
+def generate_adjacency_list(coordinates, existing_adjacency_list):
     adjacency_list = []
+    if existing_adjacency_list:
+        adjacency_list = existing_adjacency_list
     prev_adjacency_list_node = None
+    index_offset = len(adjacency_list)
     for index in range(len(coordinates)):
+        eff_index = index + index_offset
         coordinate = coordinates[index]
-        curr_adjacency_list_node = AdjacencyListNode(index, coordinate)
+        curr_adjacency_list_node = AdjacencyListNode(eff_index, coordinate)
         if prev_adjacency_list_node:
             prev_adjacency_list_node.link_to(curr_adjacency_list_node)
         for other_adjacency_list_node in adjacency_list:
@@ -68,21 +72,25 @@ def print_adjacency_list(adjacency_list):
         print('%s:%s: %s' % (adjacency_list_node.index, adjacency_list_node.coordinate, adjacency_list_node.neighbors))
 
 
-def generate_optimized_adjacency_list(coordinates):
+def generate_optimized_adjacency_list(coordinates, existing_adjacency_list):
     debounced_coordinates = debounce_coordinates(coordinates)
-    adjacency_list = generate_adjacency_list(debounced_coordinates)
+    adjacency_list = generate_adjacency_list(debounced_coordinates, existing_adjacency_list)
     return adjacency_list
 
 
-def generate_optimized_adjacency_list_from_file(recording):
-    cache = '%s.cache' % recording
-    if os.path.isfile(cache):
-        with open(cache, 'rb') as f:
+def generate_optimized_adjacency_list_from_file(recordings, custom_cache_name=None):
+    cache_name = '%s.cache' % recordings[0]
+    if custom_cache_name:
+        cache_name = custom_cache_name
+    if os.path.isfile(cache_name):
+        with open(cache_name, 'rb') as f:
             adjacency_list = pickle.load(f)
         return adjacency_list
-    with open(recording) as f:
-        coordinates = json.loads(f.read())
-    adjacency_list = generate_optimized_adjacency_list(coordinates)
-    with open(cache, 'wb') as f:
+    adjacency_list = []
+    for recording in recordings:
+        with open(recording) as f:
+            coordinates = json.loads(f.read())
+        adjacency_list = generate_optimized_adjacency_list(coordinates, adjacency_list)
+    with open(cache_name, 'wb') as f:
         pickle.dump(adjacency_list, f)
     return adjacency_list

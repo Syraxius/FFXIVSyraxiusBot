@@ -9,7 +9,7 @@ def walk(bot, recording, destination):
     bot.scan()
     a = bot.get_current_coordinate()
     b = destination
-    w = WaypointRouter(recording)
+    w = WaypointRouter([recording])
     shortest_path = w.get_shortest_path_coordinates(a, b)
     print('Shortest path:' % shortest_path)
     next_coordinate = shortest_path.pop(0)

@@ -4,8 +4,8 @@ from .optimize import generate_optimized_adjacency_list_from_file, get_euclidean
 
 
 class WaypointRouter:
-    def __init__(self, recording):
-        self.adjacency_list = generate_optimized_adjacency_list_from_file(recording)
+    def __init__(self, recordings, custom_cache_name=None):
+        self.adjacency_list = generate_optimized_adjacency_list_from_file(recordings, custom_cache_name=custom_cache_name)
 
     def get_closest_adjacency_list_node(self, coordinate):
         closest_adjacency_list_node = None

@@ -1,6 +1,7 @@
 import enum
 import json
 import math
+import random
 import time
 
 import win32api
@@ -17,7 +18,7 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
-    'level': {  # Search MP directly
+    'level': {  # Search level directly, then search again after level sync
         'base_address_offset': 0x1DE3640,
         'pointer_offsets': (),
         'datatype': 'integer',
@@ -77,6 +78,12 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
+    'selection_npc_id': {  # Search for # in BNpcName around the address range pointed by the base pointer.
+        'base_address_offset': 0x01DB8140,
+        'pointer_offsets': (0x1940,),
+        'datatype': 'integer',
+    },
+
     'x': {  # Search increased when walking to east, and decreased when walking to west
         'base_address_offset': 0x1DBBFD0,
         'pointer_offsets': (),
@@ -107,9 +114,21 @@ address_descriptions = {
         'datatype': 'float',
     },
 
+    'map_id': {
+        'base_address_offset': 0x1DB7F24,  # Search 13 at Steps of Nald is 13, and 20 at Western Thanalan
+        'pointer_offsets': (),
+        'datatype': 'integer',
+    },
+
     'is_moving': {  # Search 0 when not autorun, and 1 when autorun
         'base_address_offset': 0x01DB7F70,
         'pointer_offsets': (0x18C,),
+        'datatype': 'integer',
+    },
+
+    'is_duty_found_window': {  # Search 1677747308 when duty found window is closed, and 1684829486 when open
+        'base_address_offset': 0x1DBC57C,
+        'pointer_offsets': (),
         'datatype': 'integer',
     },
 
@@ -117,7 +136,7 @@ address_descriptions = {
         'base_address_offset': 0x1D69F68,
         'pointer_offsets': (),
         'datatype': 'integer',
-    }
+    },
 }
 
 
@@ -128,6 +147,18 @@ class OverallState(enum.Enum):
     NAVIGATING_ENEMY = 4
     NAVIGATING_LAST_MILE = 5
     ATTACKING = 6
+
+
+class DungeonState(enum.Enum):
+    NAVIGATING_DUNGEON = 1
+    SELECTING_TEAMMATE = 2
+    CHECKING_TEAMMATE = 3
+    NAVIGATING_TO_TEAMMATE = 4
+    SELECTING_ENEMY = 5
+    CHECKING_ENEMY = 6
+    LINEAR_APPROACHING_TARGET = 7
+    ATTACKING = 8
+    TOGGLING_TEAMMATE = 9
 
 
 class SelectionType(enum.Enum):
@@ -141,7 +172,7 @@ class SelectionType(enum.Enum):
 
 
 class Bot:
-    def __init__(self, attack=None, mode='patrol', recording=None, navigation_target=None):
+    def __init__(self, attack=None, mode='patrol', navigation_config=None):
         winlist = get_winlist()
         self.hwnd = get_hwnd('FINAL FANTASY XIV', winlist)
         self.base_address = get_hwnd_base_address(self.hwnd)
@@ -156,14 +187,20 @@ class Bot:
         self.selection_dx = 0
         self.selection_dy = 0
         self.selection_dz = 0
+        self.selection_distance = 0
         self.selection_x = 0
         self.selection_y = 0
         self.selection_z = 0
-        self.selection_distance = 0
+        self.map_id = 0
         self.selection_acquired = False
         self.selection_hp = 0
+        self.selection_max_hp = 0
+        self.selection_mp = 0
+        self.selection_max_mp = 0
+        self.selection_npc_id = 0
         self.is_moving = False
         self.is_cutscene = False
+        self.is_duty_found_window = False
         self.scan()
         self.init_x = self.x
         self.init_y = self.y
@@ -179,10 +216,12 @@ class Bot:
 
         self.shortest_path = []
         self.next_coordinate = None
+        self.target_coordinate = None
         self.w = None
-        self.navigation_target = navigation_target
-        if recording:
-            self.w = WaypointRouter(recording)
+        if navigation_config:
+            self.navigation_target = navigation_config['navigation_target']
+            self.navigation_map_id = navigation_config['navigation_map_id']
+            self.w = WaypointRouter(navigation_config['recordings'], custom_cache_name=navigation_config['navigation_cache_name'])
             self.init_routing_target(self.navigation_target)
 
         self.last_message = ''
@@ -203,19 +242,22 @@ class Bot:
         self.selection_dx = get_memory_values(self.hwnd, 'selection_dx', self.base_address, address_descriptions['selection_dx'])
         self.selection_dy = get_memory_values(self.hwnd, 'selection_dy', self.base_address, address_descriptions['selection_dy'])
         self.selection_dz = get_memory_values(self.hwnd, 'selection_dz', self.base_address, address_descriptions['selection_dz'])
+        self.selection_distance = get_memory_values(self.hwnd, 'selection_distance', self.base_address, address_descriptions['selection_distance'])
         self.selection_x = self.x + self.selection_dx
         self.selection_y = self.y + self.selection_dy
         self.selection_z = self.z + self.selection_dz
-        self.selection_distance = get_memory_values(self.hwnd, 'selection_distance', self.base_address, address_descriptions['selection_distance'])
+        self.map_id = get_memory_values(self.hwnd, 'map_id', self.base_address, address_descriptions['map_id'])
         self.selection_acquired = get_memory_values(self.hwnd, 'selection_acquired', self.base_address, address_descriptions['selection_acquired']) != 0
         self.selection_hp = get_memory_values(self.hwnd, 'selection_hp', self.base_address, address_descriptions['selection_hp'])
         self.selection_max_hp = get_memory_values(self.hwnd, 'selection_max_hp', self.base_address, address_descriptions['selection_max_hp'])
         self.selection_mp = get_memory_values(self.hwnd, 'selection_mp', self.base_address, address_descriptions['selection_mp'])
         self.selection_max_mp = get_memory_values(self.hwnd, 'selection_max_mp', self.base_address, address_descriptions['selection_max_mp'])
-        self.selection_is_enemy = self.selection_max_mp < 10000
+        self.selection_npc_id = get_memory_values(self.hwnd, 'selection_npc_id', self.base_address, address_descriptions['selection_npc_id'])
+        self.selection_is_enemy = self.selection_max_mp < 10000  # self.selection_npc_id != 0
         self.selection_is_damaged = self.selection_hp != self.selection_max_hp
         self.is_moving = get_memory_values(self.hwnd, 'is_moving', self.base_address, address_descriptions['is_moving'])
         self.is_cutscene = get_memory_values(self.hwnd, 'is_cutscene', self.base_address, address_descriptions['is_cutscene'])
+        self.is_duty_found_window = get_memory_values(self.hwnd, 'is_duty_found_window', self.base_address, address_descriptions['is_duty_found_window']) == 1684829486
 
     def get_current_coordinate(self):
         return [self.x, self.y, self.z]
@@ -319,9 +361,28 @@ class Bot:
     def get_tank(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F2)  # Hotkey for targeting tank member
 
+    def get_dps(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F4)  # Hotkey for targeting DPS member
+
+    def get_teammate(self):
+        if random.random() > 0.5:
+            self.get_tank()
+        else:
+            self.get_dps()
+
     def get_tank_target(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F2)  # Hotkey for targeting tank member
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('t', 0))
+
+    def get_dps_target(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F4)  # Hotkey for targeting DPS member
+        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('t', 0))
+
+    def get_teammate_target(self):
+        if random.random() > 0.5:
+            self.get_tank_target()
+        else:
+            self.get_dps_target()
 
     def skip_cutscene(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_ESCAPE)  # Hotkey for opening skip menu
@@ -330,11 +391,19 @@ class Bot:
         time.sleep(0.1)
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_NUMPAD0)  # Hotkey for confirming
 
+    def accept_duty(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_NUMPAD4)  # Hotkey for selecting middle
+        time.sleep(0.1)
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_NUMPAD4)  # Hotkey for selecting Commence
+        time.sleep(0.1)
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_NUMPAD0)  # Hotkey for confirming
+
     def cancel_routing_target(self, continue_walking=False):
         if not self.w:
             return
         self.shortest_path = []
         self.next_coordinate = None
+        self.target_coordinate = None
         if not continue_walking:
             self.ensure_walking_state(False)
 
@@ -342,16 +411,25 @@ class Bot:
         if not self.w:
             return
         self.cancel_routing_target(continue_walking=continue_walking)
+        self.target_coordinate = target_coordinate
         a = self.get_current_coordinate()
         b = target_coordinate
         self.shortest_path = self.w.get_shortest_path_coordinates(a, b)
 
-    def walk_to_routing_target(self, target_coordinate=None):
+    def walk_to_routing_target(self, target_coordinate=None, reinit_if_empty=True, reinit_if_different=False):
+        if reinit_if_different:
+            if self.target_coordinate != target_coordinate:
+                self.init_routing_target(target_coordinate)
         if self.next_coordinate is None:
             if len(self.shortest_path) == 0:
-                if target_coordinate:
-                    self.init_routing_target(target_coordinate, continue_walking=True)
-                    return True
+                if reinit_if_empty and target_coordinate:
+                    delta_x = 0
+                    delta_y = 0
+                    if self.is_moving:
+                        current_direction = self.get_current_direction()
+                        delta_x = 6 * math.cos(current_direction)
+                        delta_y = -(6 * math.sin(current_direction))
+                    self.init_routing_target([target_coordinate[0] + delta_x, target_coordinate[1] + delta_y], continue_walking=True)
                 else:
                     self.ensure_walking_state(False)
                     return False
@@ -373,7 +451,7 @@ class Bot:
 
     def start(self):
         if self.mode == 'dungeon':
-            self.state_overall = OverallState.ACQUIRING_TEAMMATE
+            self.state_overall = DungeonState.SELECTING_TEAMMATE
             self.start_dungeon()
         elif self.mode == 'assist':
             self.state_overall = OverallState.ACQUIRING_ENEMY
@@ -457,115 +535,140 @@ class Bot:
             while True:
                 self.scan()
 
-                if time.time() - record_timestamp > 0.1:
-                    coordinates.append((self.x, self.y, self.z))
-                    record_timestamp = time.time()
+                if self.is_duty_found_window:
+                    time.sleep(1)
+                    self.accept_duty()
+                    time.sleep(5)
+
+                if self.map_id != self.navigation_map_id:
+                    self.debounced_print(
+                        'Map ID %s does not match expected %s, waiting.' % (self.map_id, self.navigation_map_id))
+                    time.sleep(1)
+                    continue
 
                 if self.is_cutscene:
+                    time.sleep(1)
                     self.skip_cutscene()
                     time.sleep(5)
                     continue
+
+                if time.time() - record_timestamp > 0.1:
+                    coordinates.append((self.x, self.y, self.z))
+                    record_timestamp = time.time()
 
                 if self.state_overall != last_state:
                     print(self.state_overall)
                 last_state = self.state_overall
 
-                if self.state_overall == OverallState.ACQUIRING_TEAMMATE:
-                    if self.selection_acquired:
-                        self.debounced_print('Selection acquired. Navigating to teammate')
-                        self.init_routing_target([self.selection_x, self.selection_y])
-                        self.state_overall = OverallState.NAVIGATING_TEAMMATE
-                    self.debounced_print('No selection. Attempting to select teammate and continue navigation')
-                    self.get_tank()
-                    is_continue_walking = self.walk_to_routing_target()
+                if self.state_overall == DungeonState.NAVIGATING_DUNGEON:
+                    is_continue_walking = self.walk_to_routing_target(self.navigation_target, reinit_if_empty=False, reinit_if_different=True)
                     if not is_continue_walking:
-                        self.debounced_print('Reached overall destination!')
-                        break
+                        self.debounced_print('Reached end of dungeon!')
+                        continue
+                    self.state_overall = DungeonState.SELECTING_TEAMMATE
                     time.sleep(0.05)
 
-                elif self.state_overall == OverallState.NAVIGATING_TEAMMATE:
+                elif self.state_overall == DungeonState.SELECTING_TEAMMATE:
+                    self.get_teammate()
+                    self.state_overall = DungeonState.CHECKING_TEAMMATE
+
+                elif self.state_overall == DungeonState.CHECKING_TEAMMATE:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to navigate dungeon')
+                        self.state_overall = DungeonState.NAVIGATING_DUNGEON
+                        continue
+                    if self.selection_is_enemy:
+                        self.debounced_print('Enemy selected. Attempting to check enemy')
+                        self.state_overall = DungeonState.CHECKING_ENEMY
+                        continue
+                    self.debounced_print('Teammate selected. Attempting to navigate to teammate')
+                    self.cancel_routing_target()  # Need to cancel routing when entering dynamic waypoint
+                    self.state_overall = DungeonState.NAVIGATING_TO_TEAMMATE
+
+                elif self.state_overall == DungeonState.NAVIGATING_TO_TEAMMATE:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to select teammate')
-                        self.get_tank()
-                        self.init_routing_target(self.navigation_target)
-                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        self.cancel_routing_target()
+                        self.state_overall = DungeonState.SELECTING_TEAMMATE
+                        continue
+                    if self.selection_is_enemy:
+                        self.debounced_print('Enemy selected. Attempting to check enemy')
+                        self.cancel_routing_target()
+                        self.state_overall = DungeonState.CHECKING_ENEMY
                         continue
                     if self.selection_distance < self.max_distance_to_teammate:
                         self.debounced_print('Teammate in range. Attempting to select enemy')
                         self.cancel_routing_target()
-                        self.get_tank_target()
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
-                        time.sleep(0.1)
+                        self.state_overall = DungeonState.SELECTING_ENEMY
                         continue
-                    self.debounced_print('Continue navigation towards teammate')
-                    is_continue_walking = self.walk_to_routing_target([self.selection_x, self.selection_y])
-                    if not is_continue_walking:
-                        self.init_routing_target([self.selection_x, self.selection_y], continue_walking=True)
-                        continue
+                    self.debounced_print('Navigating to teammate')
+                    self.walk_to_routing_target([self.selection_x, self.selection_y], reinit_if_empty=True, reinit_if_different=False)
                     time.sleep(0.05)
 
-                elif self.state_overall == OverallState.ACQUIRING_ENEMY:
+                elif self.state_overall == DungeonState.SELECTING_ENEMY:
+                    self.get_teammate_target()
+                    self.state_overall = DungeonState.CHECKING_ENEMY
+
+                elif self.state_overall == DungeonState.CHECKING_ENEMY:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to select teammate')
-                        self.get_tank()
-                        self.init_routing_target(self.navigation_target)
-                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        self.state_overall = DungeonState.SELECTING_TEAMMATE
                         continue
                     if not (self.selection_is_enemy and self.selection_is_damaged):
                         self.debounced_print('Selection is not a damaged enemy. Attempting to select teammate')
-                        self.get_tank()
-                        self.init_routing_target(self.navigation_target)
-                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
-                        continue
-                    self.state_overall = OverallState.NAVIGATING_ENEMY
-
-                elif self.state_overall == OverallState.NAVIGATING_ENEMY:
-                    if not self.selection_acquired:
-                        self.debounced_print('No selection. Attempting to select enemy')
-                        self.get_tank_target()
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
-                        time.sleep(0.1)
-                        continue
-                    if not (self.selection_is_enemy and self.selection_is_damaged):
-                        self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
-                        self.get_tank_target()
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
-                        time.sleep(0.1)
+                        self.state_overall = DungeonState.SELECTING_TEAMMATE
                         continue
                     if self.selection_distance > self.max_distance_to_target_high:
                         self.debounced_print('Enemy out of range. Attempting to select teammate')
-                        self.get_tank()
-                        self.init_routing_target(self.navigation_target)
-                        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+                        self.state_overall = DungeonState.SELECTING_TEAMMATE
                         continue
-                    self.debounced_print('Enemy in range. Attempting to attack')
-                    self.state_overall = OverallState.ATTACKING
+                    if self.selection_npc_id == 73:  # If Galvanth the dominator, target the DPS's target
+                        self.debounced_print('Galvanth detected. Attempting to acquire DPS target')
+                        self.get_dps_target()
+                        self.state_overall = DungeonState.LINEAR_APPROACHING_TARGET
+                    self.debounced_print('Enemy in range. Attempting to attack enemy')
+                    self.state_overall = DungeonState.ATTACKING
 
-                elif self.state_overall == OverallState.ATTACKING:
+                elif self.state_overall == DungeonState.LINEAR_APPROACHING_TARGET:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to select enemy')
-                        self.get_tank_target()
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
-                        time.sleep(0.1)
+                        self.state_overall = DungeonState.SELECTING_ENEMY
                         continue
                     if not (self.selection_is_enemy and self.selection_is_damaged):
                         self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
-                        self.get_tank_target()
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
-                        time.sleep(0.1)
+                        self.state_overall = DungeonState.SELECTING_ENEMY
+                        continue
+                    if self.selection_distance < self.max_distance_to_target_high:
+                        self.debounced_print('Enemy in range. Attempting to attack')
+                        self.state_overall = DungeonState.ATTACKING
+                        continue
+                    self.debounced_print('Enemy out of range range. Attempting to approach enemy')
+                    self.turn_to_target(self.selection_x, self.selection_y)
+                    self.ensure_walking_state(True)
+                    time.sleep(0.1)
+
+                elif self.state_overall == DungeonState.ATTACKING:
+                    if not self.selection_acquired:
+                        self.debounced_print('No selection. Attempting to select enemy')
+                        self.state_overall = DungeonState.SELECTING_ENEMY
+                        continue
+                    if not (self.selection_is_enemy and self.selection_is_damaged):
+                        self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
+                        self.state_overall = DungeonState.SELECTING_ENEMY
                         continue
                     if self.selection_distance > self.max_distance_to_target_high:
                         self.debounced_print('Enemy out of range. Attempting to select enemy')
-                        self.get_tank_target()
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
-                        time.sleep(0.1)
+                        self.state_overall = DungeonState.SELECTING_ENEMY
                         continue
-                    if self.is_moving:
-                        self.debounced_print('Still moving, waiting for stop')
-                        time.sleep(0.1)
-                        continue
-                    self.debounced_print('Enemy in range. Attacking!')
                     self.attack()
+                    if self.selection_npc_id == 73:  # If Galvanth the dominator, target the DPS's target
+                        self.debounced_print('Galvanth detected. Attempting to acquire DPS target')
+                        self.get_dps_target()
+                        self.state_overall = DungeonState.LINEAR_APPROACHING_TARGET
+
+                elif self.state_overall == DungeonState.TOGGLING_TEAMMATE:
+                    # Toggle teammate here
+                    self.state_overall == DungeonState.SELECTING_TEAMMATE
         finally:
             filename = 'recording%s.json' % (int(time.time() * 1000))
             with open(filename, 'w') as f:

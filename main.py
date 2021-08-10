@@ -56,8 +56,8 @@ class BlackMageAttackState(enum.Enum):
 
 
 class BlackMageBot(Bot):
-    def __init__(self, mode, recording=None, navigation_target=None):
-        super(BlackMageBot, self).__init__(self.attack_blackmage, mode=mode, recording=recording, navigation_target=navigation_target)
+    def __init__(self, mode, navigation_config=None):
+        super(BlackMageBot, self).__init__(self.attack_blackmage, mode=mode, navigation_config=navigation_config)
         self.skills = skills
         self.skill_timestamp = {}
         self.state_attack = BlackMageAttackState.INITIATE
@@ -127,7 +127,15 @@ class BlackMageBot(Bot):
 
 
 def main():
-    bot = BlackMageBot(mode='assist', recording='recordings/tamtara1.json', navigation_target=TAMTARA_END)
+    navigation_config = {
+        'tamtara': {
+            'recordings': ['recordings/tamtara1.json', 'recordings/tamtara2.json', 'recordings/tamtara3.json'],
+            'navigation_cache_name': 'recordings/tamtaracombined.cache',
+            'navigation_target': TAMTARA_END,
+            'navigation_map_id': 8,
+        }
+    }
+    bot = BlackMageBot(mode='dungeon', navigation_config=navigation_config['tamtara'])
     bot.start()
 
 
