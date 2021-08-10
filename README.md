@@ -17,14 +17,15 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 # Features
 
 - Navigation engine
+  - Human-like in-game character control
   - Waypoints recording
   - Waypoints visualization
   - Waypoints optimization
   - Waypoints conversion from sequential to connected graph (adjacency list)
+  - Caching of optimized adjacency list to disk
   - Shortest path routing between any two points (SSSP using Dijkstra's algorithm)
-  - Human-like in-game character control
 - Memory-reading engine
-  - Obtain information like HP, MP, coordinates, target information, and more directly from game engine.
+  - Obtain information like HP, MP, coordinates, map information, target information, and more directly from game engine.
 - Combat automation engine
   - Assist
     - Memory-reading and state-machine based combat automation
@@ -38,6 +39,7 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
     - Human-like movement and fighting
     - Progress through dungeon with the team without running ahead
     - Automatically engage only aggro'ed monsters
+    - Automatically accept duty
     - Automatically skip cutscenes
 - Others
   - Control game even when game is minimized
