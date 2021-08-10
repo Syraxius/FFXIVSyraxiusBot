@@ -140,13 +140,10 @@ address_descriptions = {
 }
 
 
-class OverallState(enum.Enum):
-    ACQUIRING_TEAMMATE = 1
-    NAVIGATING_TEAMMATE = 2
-    ACQUIRING_ENEMY = 3
-    NAVIGATING_ENEMY = 4
-    NAVIGATING_LAST_MILE = 5
-    ATTACKING = 6
+class AssistState(enum.Enum):
+    ACQUIRING_ENEMY = 1
+    NAVIGATING_ENEMY = 2
+    ATTACKING = 3
 
 
 class DungeonState(enum.Enum):
@@ -172,7 +169,7 @@ class SelectionType(enum.Enum):
 
 
 class Bot:
-    def __init__(self, attack=None, mode='patrol', navigation_config=None):
+    def __init__(self, attack=None, mode='assist', navigation_config=None):
         winlist = get_winlist()
         self.hwnd = get_hwnd('FINAL FANTASY XIV', winlist)
         self.base_address = get_hwnd_base_address(self.hwnd)
@@ -206,13 +203,13 @@ class Bot:
         self.init_y = self.y
         self.init_z = self.z
 
-        self.state_overall = OverallState.ACQUIRING_TEAMMATE
+        self.state_overall = None
         self.attack = attack
 
         self.max_distance_to_teammate = 5
         self.max_distance_to_target = 10
         self.max_distance_to_target_high = 20
-        self.mode = mode  # 'assist_autotarget', 'assist'
+        self.mode = mode  # 'assist', 'dungeon'
 
         self.shortest_path = []
         self.next_coordinate = None
@@ -454,17 +451,17 @@ class Bot:
             self.state_overall = DungeonState.SELECTING_TEAMMATE
             self.start_dungeon()
         elif self.mode == 'assist':
-            self.state_overall = OverallState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.ACQUIRING_ENEMY
             self.start_assist(autotarget=False, autoapproach=False)
         elif self.mode == 'assist_autotarget':
-            self.state_overall = OverallState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.ACQUIRING_ENEMY
             self.start_assist(autotarget=True, autoapproach=False)
         elif self.mode == 'assist_autotarget_autoapproach':
             self.start_assist(autotarget=True, autoapproach=True)
-            self.state_overall = OverallState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.ACQUIRING_ENEMY
         elif self.mode == 'assist_autoapproach':
             self.start_assist(autotarget=False, autoapproach=True)
-            self.state_overall = OverallState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.ACQUIRING_ENEMY
 
     def start_assist(self, autotarget=False, autoapproach=False):
         record_timestamp = time.time()
@@ -477,28 +474,28 @@ class Bot:
                     coordinates.append((self.x, self.y, self.z))
                     record_timestamp = time.time()
 
-                if self.state_overall == OverallState.ACQUIRING_ENEMY:
+                if self.state_overall == AssistState.ACQUIRING_ENEMY:
                     if self.selection_acquired:
                         self.debounced_print('Selection acquired. Navigating to enemy')
-                        self.state_overall = OverallState.NAVIGATING_ENEMY
+                        self.state_overall = AssistState.NAVIGATING_ENEMY
                         continue
                     if autotarget:
                         self.debounced_print('No selection. Attempting to select enemy')
                         self.get_nearest_enemy()
                     time.sleep(0.1)
 
-                elif self.state_overall == OverallState.NAVIGATING_ENEMY:
+                elif self.state_overall == AssistState.NAVIGATING_ENEMY:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to acquire enemy')
                         if autoapproach:
                             self.ensure_walking_state(False)
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        self.state_overall = AssistState.ACQUIRING_ENEMY
                         continue
                     if self.selection_distance < self.max_distance_to_target_high:
                         self.debounced_print('Enemy in range. Attempting to attack')
                         if autoapproach:
                             self.ensure_walking_state(False)
-                        self.state_overall = OverallState.ATTACKING
+                        self.state_overall = AssistState.ATTACKING
                         continue
                     if autoapproach:
                         self.debounced_print('Enemy out of range range. Attempting to approach enemy')
@@ -506,14 +503,14 @@ class Bot:
                         self.ensure_walking_state(True)
                     time.sleep(0.1)
 
-                elif self.state_overall == OverallState.ATTACKING:
+                elif self.state_overall == AssistState.ATTACKING:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to acquire enemy')
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        self.state_overall = AssistState.ACQUIRING_ENEMY
                         continue
                     if self.selection_distance > self.max_distance_to_target_high:
                         self.debounced_print('Enemy out of range. Attempting to acquire enemy')
-                        self.state_overall = OverallState.ACQUIRING_ENEMY
+                        self.state_overall = AssistState.ACQUIRING_ENEMY
                         continue
                     if self.is_moving:
                         self.debounced_print('Still moving, waiting for stop')

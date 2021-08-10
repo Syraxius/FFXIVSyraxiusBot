@@ -3,8 +3,8 @@ import math
 import os
 import pickle
 
-debouncing_distance = 0.01
-connecting_distance = 6
+debouncing_distance = 0.2
+connecting_distance = 3
 
 
 def get_euclidean_distance(coordinate_a, coordinate_b):
