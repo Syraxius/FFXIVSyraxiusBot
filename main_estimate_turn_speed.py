@@ -28,6 +28,8 @@ def estimate_turn_speed(bot):
         average_radians = total_radians / times
         results.append((turn_duration, average_radians))
     print(results)
+    for result in results:
+        print('%s,%s' % result)
 
 
 def main():

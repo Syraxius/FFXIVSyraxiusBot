@@ -73,7 +73,10 @@ class BlackMageBot(Bot):
         if self.state_attack == BlackMageAttackState.INITIATE:
             if self.mp < 2000:
                 self.state_attack = BlackMageAttackState.ICE
-            self.cast('fire', swiftcast_active=self.swiftcast_active)
+            if self.level >= 34:
+                self.cast('fire3', swiftcast_active=self.swiftcast_active)
+            else:
+                self.cast('fire', swiftcast_active=self.swiftcast_active)
             self.set_skill_cooldown('affinity', 15)
             if self.swiftcast_active:
                 self.swiftcast_active = False
@@ -85,7 +88,10 @@ class BlackMageBot(Bot):
                 self.cast('transpose')
                 self.set_skill_cooldown('transpose', self.skills['transpose']['recast'])
                 self.set_skill_cooldown('affinity', 15)
-                self.state_attack = BlackMageAttackState.ICE  # THUNDER if needed
+                if self.level >= 6:
+                    self.state_attack = BlackMageAttackState.THUNDER
+                else:
+                    self.state_attack = BlackMageAttackState.ICE
                 return
             if self.get_skill_cooldown_remaining('luciddreaming') <= 0:
                 self.cast('luciddreaming')
@@ -94,29 +100,34 @@ class BlackMageBot(Bot):
             self.set_skill_cooldown('affinity', 15)
 
         elif self.state_attack == BlackMageAttackState.THUNDER:
-            self.cast('thunder2')
+            if self.level >= 26:
+                self.cast('thunder2')
+            else:
+                self.cast('thunder')
             self.state_attack = BlackMageAttackState.ICE
 
         elif self.state_attack == BlackMageAttackState.ICE:
             if self.mp >= 8000:
-                # if self.get_skill_is_cooldown('swiftcast'):
-                #     self.cast('swiftcast')
-                #     self.set_skill_cooldown('swiftcast', self.skills['swiftcast']['recast'])
-                #     self.swiftcast_active = True
-                #     self.state_attack = BlackMageAttackState.INITIATE
-                #     return
-                if self.get_skill_is_cooldown('transpose'):
-                    self.cast('transpose')
-                    self.set_skill_cooldown('transpose', self.skills['transpose']['recast'])
-                    self.set_skill_cooldown('affinity', 15)
-                    self.state_attack = BlackMageAttackState.FIRE
-                    return
+                if self.level >= 34:
+                    if self.get_skill_is_cooldown('swiftcast'):
+                        self.cast('swiftcast')
+                        self.set_skill_cooldown('swiftcast', self.skills['swiftcast']['recast'])
+                        self.swiftcast_active = True
+                        self.state_attack = BlackMageAttackState.INITIATE
+                        return
+                else:
+                    if self.get_skill_is_cooldown('transpose'):
+                        self.cast('transpose')
+                        self.set_skill_cooldown('transpose', self.skills['transpose']['recast'])
+                        self.set_skill_cooldown('affinity', 15)
+                        self.state_attack = BlackMageAttackState.FIRE
+                        return
             self.cast('ice')
             self.set_skill_cooldown('affinity', 15)
 
 
 def main():
-    bot = BlackMageBot(mode='dungeon', recording='recordings/tamtara1.json', navigation_target=TAMTARA_END)
+    bot = BlackMageBot(mode='assist', recording='recordings/tamtara1.json', navigation_target=TAMTARA_END)
     bot.start()
 
 

@@ -22,12 +22,12 @@ TAMTARA_END = [-44.96254348754883, -17.00678253173828, 14.04631519317627]
 
 
 def main():
-    path = 'recordings/tamtara1.json'
+    path = 'recordings/sampleuldah.json'
     with open(path) as f:
         coordinates = json.loads(f.read())
     w = WaypointRouter(path)
-    a = TAMTARA_START
-    b = TAMTARA_END
+    a = CRYSTAL
+    b = GATE
     shortest_path = w.get_shortest_path_coordinates(a, b)
     visualize_coordinates(coordinates, shortest_path)
 

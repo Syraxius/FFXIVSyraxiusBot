@@ -17,6 +17,12 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
+    'level': {  # Search MP directly
+        'base_address_offset': 0x1DE3640,
+        'pointer_offsets': (),
+        'datatype': 'integer',
+    },
+
     'selection_dx': {  # Get selection_dy then subtract 8
         'base_address_offset': 0x01DB8210,
         'pointer_offsets': (0x360,),
@@ -101,7 +107,7 @@ address_descriptions = {
         'datatype': 'float',
     },
 
-    'is_autorun': {  # Search 0 when not autorun, and 1 when autorun
+    'is_moving': {  # Search 0 when not autorun, and 1 when autorun
         'base_address_offset': 0x01DB7F70,
         'pointer_offsets': (0x18C,),
         'datatype': 'integer',
@@ -141,6 +147,7 @@ class Bot:
         self.base_address = get_hwnd_base_address(self.hwnd)
 
         self.mp = 0
+        self.level = 0
         self.x = 0
         self.y = 0
         self.z = 0
@@ -155,7 +162,7 @@ class Bot:
         self.selection_distance = 0
         self.selection_acquired = False
         self.selection_hp = 0
-        self.is_autorun = False
+        self.is_moving = False
         self.is_cutscene = False
         self.scan()
         self.init_x = self.x
@@ -187,6 +194,7 @@ class Bot:
 
     def scan(self):
         self.mp = get_memory_values(self.hwnd, 'mp', self.base_address, address_descriptions['mp'])
+        self.level = get_memory_values(self.hwnd, 'level', self.base_address, address_descriptions['level'])
         self.x = get_memory_values(self.hwnd, 'x', self.base_address, address_descriptions['x'])
         self.y = get_memory_values(self.hwnd, 'y', self.base_address, address_descriptions['y'])
         self.z = get_memory_values(self.hwnd, 'z', self.base_address, address_descriptions['z'])
@@ -206,7 +214,7 @@ class Bot:
         self.selection_max_mp = get_memory_values(self.hwnd, 'selection_max_mp', self.base_address, address_descriptions['selection_max_mp'])
         self.selection_is_enemy = self.selection_max_mp < 10000
         self.selection_is_damaged = self.selection_hp != self.selection_max_hp
-        self.is_autorun = get_memory_values(self.hwnd, 'is_autorun', self.base_address, address_descriptions['is_autorun'])
+        self.is_moving = get_memory_values(self.hwnd, 'is_moving', self.base_address, address_descriptions['is_moving'])
         self.is_cutscene = get_memory_values(self.hwnd, 'is_cutscene', self.base_address, address_descriptions['is_cutscene'])
 
     def get_current_coordinate(self):
@@ -228,15 +236,16 @@ class Bot:
 
     def ensure_walking_state(self, is_walking):
         if is_walking:
-            if not self.is_autorun:
+            if not self.is_moving:
                 keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
         elif not is_walking:
-            if self.is_autorun:
+            if self.is_moving:
                 keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
 
     def get_turn_duration(self, radians, ensure_nonnegative=True):
         # Delta Radians = 2.65 * Turn Duration + 0.0142
         # Delta Radians = 2.4 * Turn Duration + 0.055
+        # Delta Radians = 2.35 * Turn Duration + 0
         # Why different?
         turn_speed = 2.4  # rad/s
         turn_min_amount = 0.055  # rad
@@ -403,12 +412,14 @@ class Bot:
                 elif self.state_overall == OverallState.NAVIGATING_ENEMY:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to acquire enemy')
-                        self.ensure_walking_state(False)
+                        if autoapproach:
+                            self.ensure_walking_state(False)
                         self.state_overall = OverallState.ACQUIRING_ENEMY
                         continue
                     if self.selection_distance < self.max_distance_to_target_high:
                         self.debounced_print('Enemy in range. Attempting to attack')
-                        self.ensure_walking_state(False)
+                        if autoapproach:
+                            self.ensure_walking_state(False)
                         self.state_overall = OverallState.ATTACKING
                         continue
                     if autoapproach:
@@ -425,6 +436,10 @@ class Bot:
                     if self.selection_distance > self.max_distance_to_target_high:
                         self.debounced_print('Enemy out of range. Attempting to acquire enemy')
                         self.state_overall = OverallState.ACQUIRING_ENEMY
+                        continue
+                    if self.is_moving:
+                        self.debounced_print('Still moving, waiting for stop')
+                        time.sleep(0.1)
                         continue
                     self.debounced_print('Enemy in range. Attacking!')
                     self.attack()
@@ -543,6 +558,10 @@ class Bot:
                         self.debounced_print('Enemy out of range. Attempting to select enemy')
                         self.get_tank_target()
                         self.state_overall = OverallState.ACQUIRING_ENEMY
+                        time.sleep(0.1)
+                        continue
+                    if self.is_moving:
+                        self.debounced_print('Still moving, waiting for stop')
                         time.sleep(0.1)
                         continue
                     self.debounced_print('Enemy in range. Attacking!')
