@@ -1,4 +1,4 @@
-recordings/*.cache
+recordings/*.cache*
 
 .idea
 

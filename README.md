@@ -22,6 +22,7 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
   - Waypoints visualization
   - Waypoints optimization
   - Waypoints conversion from sequential to connected graph (adjacency list)
+  - Combining of multiple waypoint recordings into a single optimized connected graph
   - Caching of optimized adjacency list to disk
   - Shortest path routing between any two points (SSSP using Dijkstra's algorithm)
 - Memory-reading engine
