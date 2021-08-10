@@ -28,6 +28,7 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 - Combat automation engine
   - Assist
     - Memory-reading and state-machine based combat automation
+    - Automatically chooses skills and combo based on current level (adapts to level sync too)
     - Black Mage automatic optimal fire / blizzard combo + buffs
     - Other classes combo still WIP
 - Gameplay automation engine
