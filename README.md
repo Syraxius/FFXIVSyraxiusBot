@@ -58,15 +58,15 @@ The above shows a sample recording for Tam-Tara Deepcroft.
 
 Modify `main_visualize.py` and point it to your recording file.
 
-Specify the start and end coordinates for the shortest path routing (you can try using the first and end coordinates in your recording JSON file).
+Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
 
 Run `main_visualize.py` to generate a visualization of your waypoints and the optimal route based on your start and end coordinates.
 
 ### Test waypoints in-game
 
-Modify `main_walk.py` and point it to your recording file.
+Modify `main_walk.py` and point it to your recording file. (You may use the sample, which is in Ul'Dah. Start from the Ul'Dah Aetherite Plaza.)
 
-Specify the start and end coordinates for the shortest path routing (you can try using the first and end coordinates in your recording JSON file).
+Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
 
 Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.
 
