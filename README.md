@@ -18,27 +18,22 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 
 - Navigation engine
   - Human-like in-game character control
-  - Waypoints recording
-  - Waypoints visualization
-  - Waypoints optimization
-  - Waypoints conversion from sequential to connected graph (adjacency list)
-  - Combining of multiple waypoint recordings into a single optimized connected graph
-  - Caching of optimized adjacency list to disk
-  - Shortest path routing between any two points (SSSP using Dijkstra's algorithm)
+  - Waypoints recording, visualization and optimization
+  - Combining of multiple waypoint recordings into a single optimized connected graph (adjacency list)
+  - Shortest path routing for navigation (SSSP using Dijkstra's algorithm)
 - Memory-reading engine
   - Obtain information like HP, MP, coordinates, map information, target information, and more directly from game engine.
 - Combat automation engine
   - Assist
     - Memory-reading and state-machine based combat automation
-    - Automatically chooses skills and combo based on current level (adapts to level sync too)
+    - Automatically chooses skills and combos based on current level (adapts to level sync too)
     - Black Mage automatic optimal fire / blizzard combo + buffs
-    - Other classes combo still WIP
+    - (Other classes combo still WIP)
 - Gameplay automation engine
   - Dungeon
     - Memory-reading and state-machine based gameplay automation
-    - Waypoint-based navigation - doesn't rely on follow function
+    - Progress through dungeon at the team's pace without running ahead
     - Human-like movement and fighting
-    - Progress through dungeon with the team without running ahead
     - Automatically engage only aggro'ed monsters
     - Automatically accept duty
     - Automatically skip cutscenes
@@ -49,7 +44,7 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 
 ## Record waypoints
 
-Run `main_record.py` and walk around.
+Run `main_record.py` and walk around in-game.
 
 When you stop it with CTRL+C, a recording<timestamp>.json will be created containing the waypoints.
 
@@ -61,15 +56,15 @@ The above shows a sample recording for Tam-Tara Deepcroft.
 
 Modify `main_visualize.py` and point it to your recording file.
 
-Specify the start and end coordinates for the routing (you can peek in your recording file for reference).
+Specify the start and end coordinates for the shortest path routing (you can try using the first and end coordinates in your recording JSON file).
 
-Run `main_visualize.py` to generate visualization of your waypoints.
+Run `main_visualize.py` to generate a visualization of your waypoints and the optimal route based on your start and end coordinates.
 
 ## Test waypoints in-game
 
 Modify `main_walk.py` and point it to your recording file.
 
-Specify the start and end coordinates for the routing (you can peek in your recording file for reference).
+Specify the start and end coordinates for the shortest path routing (you can try using the first and end coordinates in your recording JSON file).
 
 Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.
 
@@ -86,7 +81,7 @@ Automates attack combos for your character, leaving you free to make other decis
 <img src="./readme_resources/assist.png" />
 
 Modify `main.py` and change `mode` to the following:
-- `assist` - Automatically run attack combo when your selected target is in range
+- `assist` - Automatically run attack combo only when you select a target and it is in range
 - `assist_autotarget` - Automatically select nearest enemy and run attack combo when in range
 - `assist_autoapproach` - Automatically approach your selected enemy and run attack combo when in range
 - `assist_autotarget_autoapproach` - Automatically select nearest enemy, approach, and run attack combo when in range
