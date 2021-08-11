@@ -68,7 +68,7 @@ Specify the start and end coordinates for the shortest path routing (you can try
 
 Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.
 
-# Bot
+# Getting Started
 
 (Note that all modes also automatically dump a waypoint recording for use later)
 
