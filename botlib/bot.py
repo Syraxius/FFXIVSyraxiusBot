@@ -158,6 +158,11 @@ class DungeonState(enum.Enum):
     TOGGLING_TEAMMATE = 9
 
 
+class DungeonTeammateState(enum.Enum):
+    TANK = 0
+    DPS = 1
+
+
 class SelectionType(enum.Enum):
     ENEMY_ENGAGED = 0
     ENEMY_HOSTILE_SELF = 63
@@ -528,6 +533,7 @@ class Bot:
         record_timestamp = time.time()
         coordinates = []
         try:
+            teammate_state = DungeonTeammateState.TANK
             last_state = None
             while True:
                 self.scan()
@@ -544,7 +550,7 @@ class Bot:
                     continue
 
                 if self.is_cutscene:
-                    time.sleep(1)
+                    time.sleep(5)
                     self.skip_cutscene()
                     time.sleep(5)
                     continue
@@ -562,11 +568,22 @@ class Bot:
                     if not is_continue_walking:
                         self.debounced_print('Reached end of dungeon!')
                         continue
-                    self.state_overall = DungeonState.SELECTING_TEAMMATE
+                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     time.sleep(0.05)
 
+                elif self.state_overall == DungeonState.TOGGLING_TEAMMATE:
+                    if teammate_state == DungeonTeammateState.TANK:
+                        teammate_state = DungeonTeammateState.DPS
+                    else:
+                        teammate_state = DungeonTeammateState.TANK
+                    self.state_overall = DungeonState.SELECTING_TEAMMATE
+
                 elif self.state_overall == DungeonState.SELECTING_TEAMMATE:
-                    self.get_teammate()
+                    # self.get_teammate()
+                    if teammate_state == DungeonTeammateState.TANK:
+                        self.get_tank()
+                    else:
+                        self.get_dps()
                     self.state_overall = DungeonState.CHECKING_TEAMMATE
 
                 elif self.state_overall == DungeonState.CHECKING_TEAMMATE:
@@ -586,7 +603,7 @@ class Bot:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to select teammate')
                         self.cancel_routing_target()
-                        self.state_overall = DungeonState.SELECTING_TEAMMATE
+                        self.state_overall = DungeonState.TOGGLING_TEAMMATE
                         continue
                     if self.selection_is_enemy:
                         self.debounced_print('Enemy selected. Attempting to check enemy')
@@ -603,21 +620,25 @@ class Bot:
                     time.sleep(0.05)
 
                 elif self.state_overall == DungeonState.SELECTING_ENEMY:
-                    self.get_teammate_target()
+                    # self.get_teammate_target()
+                    if teammate_state == DungeonTeammateState.TANK:
+                        self.get_tank_target()
+                    else:
+                        self.get_dps_target()
                     self.state_overall = DungeonState.CHECKING_ENEMY
 
                 elif self.state_overall == DungeonState.CHECKING_ENEMY:
                     if not self.selection_acquired:
                         self.debounced_print('No selection. Attempting to select teammate')
-                        self.state_overall = DungeonState.SELECTING_TEAMMATE
+                        self.state_overall = DungeonState.TOGGLING_TEAMMATE
                         continue
                     if not (self.selection_is_enemy and self.selection_is_damaged):
                         self.debounced_print('Selection is not a damaged enemy. Attempting to select teammate')
-                        self.state_overall = DungeonState.SELECTING_TEAMMATE
+                        self.state_overall = DungeonState.TOGGLING_TEAMMATE
                         continue
                     if self.selection_distance > self.max_distance_to_target_high:
                         self.debounced_print('Enemy out of range. Attempting to select teammate')
-                        self.state_overall = DungeonState.SELECTING_TEAMMATE
+                        self.state_overall = DungeonState.TOGGLING_TEAMMATE
                         continue
                     if self.selection_npc_id == 73:  # If Galvanth the dominator, target the DPS's target
                         self.debounced_print('Galvanth detected. Attempting to acquire DPS target')
@@ -660,12 +681,10 @@ class Bot:
                     self.attack()
                     if self.selection_npc_id == 73:  # If Galvanth the dominator, target the DPS's target
                         self.debounced_print('Galvanth detected. Attempting to acquire DPS target')
+                        teammate_state = DungeonTeammateState.DPS
                         self.get_dps_target()
                         self.state_overall = DungeonState.LINEAR_APPROACHING_TARGET
 
-                elif self.state_overall == DungeonState.TOGGLING_TEAMMATE:
-                    # Toggle teammate here
-                    self.state_overall == DungeonState.SELECTING_TEAMMATE
         finally:
             filename = 'recording%s.json' % (int(time.time() * 1000))
             with open(filename, 'w') as f:
