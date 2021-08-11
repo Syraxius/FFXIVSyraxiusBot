@@ -40,15 +40,17 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 - Others
   - Control game even when game is minimized
 
-# Waypoints
+# Getting Started
 
-## Record waypoints
+## Waypoints
+
+### Record waypoints
 
 Run `main_record.py` and walk around in-game.
 
 When you stop it with CTRL+C, a recording<timestamp>.json will be created containing the waypoints.
 
-## Visualize waypoints
+### Visualize waypoints
 
 <img src="./readme_resources/visualize.png" />
 
@@ -60,17 +62,13 @@ Specify the start and end coordinates for the shortest path routing (you can try
 
 Run `main_visualize.py` to generate a visualization of your waypoints and the optimal route based on your start and end coordinates.
 
-## Test waypoints in-game
+### Test waypoints in-game
 
 Modify `main_walk.py` and point it to your recording file.
 
 Specify the start and end coordinates for the shortest path routing (you can try using the first and end coordinates in your recording JSON file).
 
 Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.
-
-# Getting Started
-
-(Note that all modes also automatically dump a waypoint recording for use later)
 
 ## Combat automation
 
