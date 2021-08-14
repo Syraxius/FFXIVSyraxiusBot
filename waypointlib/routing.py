@@ -1,11 +1,44 @@
 from queue import PriorityQueue
 
-from .optimize import generate_optimized_adjacency_list_from_file, get_euclidean_distance
+from .optimize import generate_optimized_adjacency_list_from_file, get_euclidean_distance, debouncing_distance, connecting_distance, add_to_adjacency_list, AdjacencyListNode, save_adjacency_list_to_file, load_adjacency_list_from_file
 
 
 class WaypointRouter:
-    def __init__(self, recordings, custom_cache_name=None):
-        self.adjacency_list = generate_optimized_adjacency_list_from_file(recordings, custom_cache_name=custom_cache_name)
+    def __init__(self, recordings=None, custom_cache_name=None):
+        if recordings:
+            self.adjacency_list = generate_optimized_adjacency_list_from_file(recordings, custom_cache_name=custom_cache_name)
+        else:
+            self.adjacency_list = []
+
+    def get_adjacency_list(self):
+        return self.adjacency_list
+
+    def save_adjacency_list(self, cache_name):
+        print('Writing %s nodes to %s' % (len(self.adjacency_list), cache_name))
+        save_adjacency_list_to_file(self.adjacency_list, cache_name)
+
+    def load_adjacency_list(self, cache_name):
+        adjacency_list = load_adjacency_list_from_file(cache_name)
+        if adjacency_list:
+            self.adjacency_list = adjacency_list
+        else:
+            self.adjacency_list = []
+        print('Loaded %s nodes from %s' % (len(self.adjacency_list), cache_name))
+
+    def add_to_adjacency_list(self, coordinate, can_add_unconnected=False):
+        nearest = self.get_closest_adjacency_list_node(coordinate)
+        if not nearest:
+            node = AdjacencyListNode(1, coordinate)
+            self.adjacency_list.append(AdjacencyListNode(1, coordinate))
+            return node
+        distance = get_euclidean_distance(nearest.coordinate, coordinate)
+        if can_add_unconnected:
+            if debouncing_distance < distance:
+                return add_to_adjacency_list(coordinate, self.adjacency_list)
+        else:
+            if debouncing_distance < distance < connecting_distance:
+                return add_to_adjacency_list(coordinate, self.adjacency_list)
+        return None
 
     def get_closest_adjacency_list_node(self, coordinate):
         closest_adjacency_list_node = None
@@ -23,13 +56,10 @@ class WaypointRouter:
         # print_adjacency_list(self.adjacency_list)
         nearest_adjacency_list_node_a = self.get_closest_adjacency_list_node(coordinate_a)
         nearest_adjacency_list_node_b = self.get_closest_adjacency_list_node(coordinate_b)
-        parent = []
-        distance = []
-        for _ in range(len(self.adjacency_list)):
-            parent.append(-1)
-            distance.append(999999)
-        parent[nearest_adjacency_list_node_a.index] = nearest_adjacency_list_node_a.index
-        distance[nearest_adjacency_list_node_a.index] = 0
+        if not nearest_adjacency_list_node_a or not nearest_adjacency_list_node_b:
+            return []
+        parent = {nearest_adjacency_list_node_a.index: nearest_adjacency_list_node_a.index}
+        distance = {nearest_adjacency_list_node_a.index : 0}
         pq = PriorityQueue()
         pq.put((0, nearest_adjacency_list_node_a.index, nearest_adjacency_list_node_a))
         while pq:
@@ -38,13 +68,13 @@ class WaypointRouter:
             for neighbor in curr_node.neighbors:
                 neighbor_node = self.adjacency_list[neighbor]
                 curr_neighbor_distance = curr_distance + get_euclidean_distance(curr_node.coordinate, neighbor_node.coordinate)
-                if curr_neighbor_distance < distance[neighbor_node.index]:
+                if curr_neighbor_distance < distance.get(neighbor_node.index, 999999):
                     parent[neighbor_node.index] = curr_node.index
                     distance[neighbor_node.index] = curr_neighbor_distance
                     pq.put((curr_neighbor_distance, neighbor_node.index, neighbor_node))
-            if parent[nearest_adjacency_list_node_b.index] != -1:
+            if parent.get(nearest_adjacency_list_node_b.index, -1) != -1:
                 break
-        if parent[nearest_adjacency_list_node_b.index] != -1:
+        if parent.get(nearest_adjacency_list_node_b.index, -1) != -1:
             path = []
             curr_index = nearest_adjacency_list_node_b.index
             while parent[curr_index] != curr_index:
@@ -60,5 +90,5 @@ class WaypointRouter:
         path = self.get_shortest_path(coordinate_a, coordinate_b)
         coordinates = []
         for i in path:
-            coordinates.append(self.adjacency_list[i].coordinate)
+            coordinates.append(self.adjacency_list[i])
         return coordinates

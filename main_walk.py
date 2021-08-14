@@ -1,48 +1,68 @@
+from gevent import monkey
+monkey.patch_all()
+
 import time
 
 from botlib.bot import Bot
-from main_visualize import CRYSTAL, GATE, SHOP, BRASSBLADE, CACTUARS
-from waypointlib.routing import WaypointRouter
+from main_visualize import CRYSTAL, OUTSIDE_CRYSTAL, GATE, SHOP, BRASSBLADE, CACTUARS
 
 
-def walk(bot, recording, destination):
+def walk(bot, destination):
     bot.scan()
-    a = bot.get_current_coordinate()
+    a = bot.get_own_coordinate()
     b = destination
-    w = WaypointRouter([recording])
-    shortest_path = w.get_shortest_path_coordinates(a, b)
-    print('Shortest path:' % shortest_path)
-    next_coordinate = shortest_path.pop(0)
+    shortest_path = bot.w.get_shortest_path_coordinates(a, b)
+    curr_node = shortest_path.pop(0)
+    prev_node = None
+    prev_distance_delta = None
     while True:
         bot.scan()
         if len(shortest_path) == 0:
             bot.ensure_walking_state(False)
             break
-        if next_coordinate is None:
-            next_coordinate = shortest_path.pop(0)
-        distance_delta, direction_delta, is_turn_left = bot.calculate_navigation(next_coordinate[0], next_coordinate[1])
-        print(distance_delta, direction_delta, is_turn_left)
-        if distance_delta < 1:
-            next_coordinate = None
-        else:
-            turn_duration = bot.get_turn_duration(direction_delta)
-            if turn_duration > 0.3:
-                bot.ensure_walking_state(False)
-            if turn_duration > 0:
-                if is_turn_left:
-                    bot.turn_by_duration('left', turn_duration)
+        if curr_node is None:
+            curr_node = shortest_path.pop(0)
+            print('Next node is %s at %s' % (curr_node.index, curr_node.coordinate))
+            prev_distance_delta = None
+        distance_delta, direction_delta, is_turn_left = bot.calculate_navigation(curr_node.coordinate[0], curr_node.coordinate[1])
+        # print(distance_delta, direction_delta, is_turn_left)
+        if prev_distance_delta:
+            if prev_distance_delta - distance_delta < 0.01 and bot.is_moving == 1:
+                print('STUCK!!!')
+                if prev_node:
+                    print('Unlinking %s from %s' % (prev_node.index, curr_node.index))
+                    prev_node.unlink_from(curr_node)
+                    shortest_path = bot.w.get_shortest_path_coordinates(prev_node.coordinate, b)
+                    if prev_node:
+                        print('Next rolling back to node %s at %s' % (prev_node.index, prev_node.coordinate))
                 else:
-                    bot.turn_by_duration('right', turn_duration)
+                    shortest_path = bot.w.get_shortest_path_coordinates(bot.get_own_coordinate(), b)
+                    if prev_node:
+                        print('Next rolling back to current coordinates at %s' % (bot.get_own_coordinate()))
+                curr_node = None
+                prev_node = None
+                prev_distance_delta = None
+                continue
+        if distance_delta < 1:
+            prev_node = curr_node
+            curr_node = None
+        else:
+            bot.turn_to_target(curr_node.coordinate[0], curr_node.coordinate[1])
             bot.ensure_walking_state(True)
+        prev_distance_delta = distance_delta
         time.sleep(0.05)
 
 
 def main():
     bot = Bot()
-    recording = 'recordings/sampleuldah.json'
-    walk(bot, recording, GATE)
-    walk(bot, recording, SHOP)
-    walk(bot, recording, CRYSTAL)
+    bot.w.load_adjacency_list('caches/autolearn_%s.cache' % bot.map_id)
+    walk(bot, CRYSTAL)
+    walk(bot, OUTSIDE_CRYSTAL)
+    walk(bot, CRYSTAL)
+    walk(bot, OUTSIDE_CRYSTAL)
+    walk(bot, CRYSTAL)
+    walk(bot, OUTSIDE_CRYSTAL)
+    walk(bot, CRYSTAL)
 
 
 if __name__ == '__main__':

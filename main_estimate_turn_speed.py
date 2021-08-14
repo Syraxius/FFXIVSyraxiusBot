@@ -6,7 +6,7 @@ from botlib.bot import Bot
 
 def estimate_turn_speed(bot):
     bot.scan()
-    prev_direction = math.atan2(bot.y_complex, bot.x_complex)
+    prev_direction = bot.get_current_direction()
     if prev_direction < 0:
         prev_direction += 2 * math.pi
     results = []
@@ -17,9 +17,7 @@ def estimate_turn_speed(bot):
         for _ in range(times):
             bot.turn_by_duration('left', turn_duration)
             bot.scan()
-            current_direction = math.atan2(bot.y_complex, bot.x_complex)
-            if current_direction < 0:
-                current_direction += 2 * math.pi
+            current_direction = bot.get_current_direction()
             final_direction = bot.calculate_final_direction(current_direction, prev_direction)
             print(final_direction)
             total_radians += final_direction

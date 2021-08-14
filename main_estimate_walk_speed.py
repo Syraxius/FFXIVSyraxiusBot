@@ -6,12 +6,12 @@ from waypointlib.routing import get_euclidean_distance
 
 def estimate_walk_speed(bot):
     bot.scan()
-    prev_coordinate = bot.get_current_coordinate()
+    prev_coordinate = bot.get_own_coordinate()
     results = []
     bot.ensure_walking_state(True)
     for i in range(10):
         bot.scan()
-        curr_coordinate = bot.get_current_coordinate()
+        curr_coordinate = bot.get_own_coordinate()
         delta_distance = get_euclidean_distance(prev_coordinate, curr_coordinate)
         print(curr_coordinate, prev_coordinate)
         prev_coordinate = curr_coordinate

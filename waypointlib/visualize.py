@@ -13,13 +13,13 @@ def get_points(coordinates):
 
 
 def visualize_coordinates(coordinates, path=None):
-    ax = plt.axes(projection="3d")
-    ax.set_xlabel("x axis")
-    ax.set_ylabel("y axis")
-    ax.set_zlabel("z axis")
+    ax = plt.axes(projection='3d')
+    ax.set_xlabel('x axis')
+    ax.set_ylabel('y axis')
+    ax.set_zlabel('z axis')
 
     x_points, y_points, z_points = get_points(coordinates)
-    ax.plot3D(x_points, y_points, z_points, 'gray')
+    ax.scatter3D(x_points, y_points, z_points, s=1)
     if path:
         x_path_points, y_path_points, z_path_points = get_points(path)
         ax.plot3D(x_path_points, y_path_points, z_path_points, 'red')

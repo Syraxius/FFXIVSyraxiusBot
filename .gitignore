@@ -1,4 +1,6 @@
 recordings/*.cache*
+caches/*.cache*
+TODOS.md
 
 .idea
 
