@@ -21,8 +21,14 @@ TAMTARA_END = [-42.771080020000000, -17.288520810000000, 14.0677499800000]
 
 
 def main():
-    recordings = ['recordings/tamtara1.json', 'recordings/tamtara2.json', 'recordings/tamtara3.json']
-    w = WaypointRouter(recordings=recordings, custom_cache_name='caches/tamtaracombined.cache')
+    # Using recording:
+    # recordings = ['recordings/tamtara1.json', 'recordings/tamtara2.json', 'recordings/tamtara3.json']
+    # w = WaypointRouter(recordings=recordings, custom_cache_name='caches/tamtaracombined.cache')
+
+    # Using cache directly:
+    w = WaypointRouter()
+    w.load_adjacency_list('caches/autolearn_8.cache')
+
     a = TAMTARA_START
     b = TAMTARA_END
     adjacency_list = w.get_adjacency_list()

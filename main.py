@@ -10,6 +10,10 @@ def main():
             'exit_coordinate': TAMTARA_END,
             'map_id': 8,
         },
+        'brayflox': {
+            'exit_coordinate': TAMTARA_END,
+            'map_id': 37,
+        },
         'uldah': {
             'exit_coordinate': OUTSIDE_CRYSTAL,
             'map_id': 13,
@@ -27,7 +31,7 @@ def main():
             'custom_cache_name': 'caches/tamtaracombined.cache',
         }
     }
-    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['tamtara'], navigation_config=navigation_config['empty'])
+    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['brayflox'], navigation_config=navigation_config['empty'])
 
     def handler(signum, frame):
         bot.stop_all()

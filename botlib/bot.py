@@ -188,7 +188,7 @@ def build_game_object(hwnd, base_address, base_address_offset):
     game_object['rotation'] = game_to_normal_rotation(game_object['game_rotation'])
     game_object['is_player_character'] = game_object['object_kind'] == 1
     game_object['is_battle_npc'] = game_object['object_kind'] == 2
-    game_object['is_exit'] = game_object['object_kind'] == 7
+    game_object['is_exit'] = game_object['name'] == b'Exit'
 
     # Update character information
     if game_object['object_kind'] in [1, 2]:
@@ -387,6 +387,8 @@ class Bot:
         self.turn_by_duration(direction, turn_duration)
 
     def turn_by_duration(self, direction, turn_duration):
+        if turn_duration > 0.3:
+            self.ensure_walking_state(False)
         if direction == 'left':
             keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('a', 0), action='hold', duration=turn_duration)
         elif direction == 'right':
@@ -485,6 +487,9 @@ class Bot:
     def get_tank(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F2)  # Hotkey for targeting tank member
 
+    def get_healer(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F3)  # Hotkey for targeting healer member
+
     def get_dps(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F4)  # Hotkey for targeting DPS member
 
@@ -496,6 +501,10 @@ class Bot:
 
     def get_tank_target(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F2)  # Hotkey for targeting tank member
+        keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('t', 0))
+
+    def get_healer_target(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F3)  # Hotkey for targeting healer member
         keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('t', 0))
 
     def get_dps_target(self):
@@ -554,7 +563,6 @@ class Bot:
                 self.init_routing_target(target_coordinate)
         if self.curr_node is None:
             if len(self.shortest_path) == 0:
-                print(reinit_if_empty,  target_coordinate, reinit_if_empty and target_coordinate)
                 if reinit_if_empty and target_coordinate:
                     # Forward projection if already walking, to ensure that the waypoint is more likely in front of the character
                     delta_x = 0
@@ -698,6 +706,8 @@ class Bot:
 
             if self.map_id != self.navigation_map_id:
                 self.debounced_print('Map ID %s does not match expected %s, waiting.' % (self.map_id, self.navigation_map_id))
+                self.state_overall = DungeonState.SELECTING_ENEMY
+                self.cancel_routing_target()
                 if self.is_duty_found_window:
                     time.sleep(1)
                     self.accept_duty()
@@ -724,6 +734,7 @@ class Bot:
                 self.state_overall = DungeonState.TOGGLING_TEAMMATE
 
             elif self.state_overall == DungeonState.EXITING_DUNGEON:
+                self.walk_to_routing_target(self.navigation_target_coordinate, reinit_if_empty=False, reinit_if_different=True)
                 self.use_nearest_npc_or_object()
 
             elif self.state_overall == DungeonState.TOGGLING_TEAMMATE:
@@ -739,7 +750,7 @@ class Bot:
                 else:
                     self.get_dps()
                 self.state_overall = DungeonState.CHECKING_TEAMMATE
-                time.sleep(0.3)
+                time.sleep(0.05)
 
             elif self.state_overall == DungeonState.CHECKING_TEAMMATE:
                 if not self.target_acquired:
@@ -787,12 +798,16 @@ class Bot:
                 else:
                     self.get_dps_target()
                 self.state_overall = DungeonState.CHECKING_ENEMY
-                time.sleep(0.3)
+                time.sleep(0.05)
 
             elif self.state_overall == DungeonState.CHECKING_ENEMY:
                 if not self.target_acquired:
                     self.debounced_print('No selection. Attempting to select teammate')
                     self.state_overall = DungeonState.TOGGLING_TEAMMATE
+                    continue
+                if self.target['is_exit']:
+                    self.debounced_print('Selection is exit. Attempting to exit!')
+                    self.state_overall = DungeonState.EXITING_DUNGEON
                     continue
                 if not (self.target['is_battle_npc'] and self.target['is_damaged']):
                     self.debounced_print('Selection is not a damaged enemy. Attempting to select teammate')
@@ -825,7 +840,7 @@ class Bot:
                 self.debounced_print('Enemy out of range range. Attempting to approach enemy')
                 self.turn_to_target(self.target['x'], self.target['y'])
                 self.ensure_walking_state(True)
-                time.sleep(0.1)
+                time.sleep(0.05)
 
             elif self.state_overall == DungeonState.ATTACKING:
                 if not self.target_acquired:
