@@ -763,7 +763,8 @@ class Bot:
 
             elif self.state_overall == DungeonState.EXITING_DUNGEON:
                 self.walk_to_routing_target(self.navigation_target_coordinate, reinit_if_empty=False, reinit_if_different=True)
-                self.use_nearest_npc_or_object()
+                if not is_continue_walking:
+                    self.use_nearest_npc_or_object()
 
             elif self.state_overall == DungeonState.TOGGLING_TEAMMATE:
                 if teammate_state == DungeonTeammateState.TANK:
@@ -826,6 +827,7 @@ class Bot:
                     continue
                 if self.target['is_exit']:
                     self.debounced_print('Selection is exit. Attempting to exit!')
+                    self.navigation_target_coordinate = [self.target['x'], self.target['y'], self.target['z']]
                     self.state_overall = DungeonState.EXITING_DUNGEON
                     continue
                 if not (self.target['is_battle_npc'] and self.target['is_damaged']):
