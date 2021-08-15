@@ -16,19 +16,15 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 
 # Features
 
-- Navigation engine
-  - Human-like in-game character control
-  - Waypoints recording, visualization and optimization
-  - Combining of multiple waypoint recordings into a single optimized connected graph (adjacency list)
-  - Shortest path routing for navigation (SSSP using Dijkstra's algorithm)
-- Memory-reading engine
-  - Obtain information like HP, MP, coordinates, map information, target information, and more directly from game engine.
 - Combat automation engine
   - Assist
     - Memory-reading and state-machine based combat automation
+    - Black Mage automatic optimal fire / blizzard combo + buffs (other classes combo still WIP)
     - Automatically chooses skills and combos based on current level (adapts to level sync too)
-    - Black Mage automatic optimal fire / blizzard combo + buffs
-    - (Other classes combo still WIP)
+    - Achieve the highest possible DPS with available skills
+    - Asynchronous non-blocking implementation
+    - Detect cast failures and readapt (due to line of sight, interruption, out of range, etc.)
+    - Fast skill cancellation and target switching
 - Gameplay automation engine
   - Dungeon
     - Memory-reading and state-machine based gameplay automation
@@ -37,38 +33,18 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
     - Automatically engage only aggro'ed monsters
     - Automatically accept duty
     - Automatically skip cutscenes
+- Navigation engine
+  - Human-like in-game character control - behave and move exactly like a controller player
+  - Real-time simultaneous localization and mapping (SLAM) - learns topology of maps without any prior hardcoding or waypoints recording
+  - Fast stuck detection and resolution algorithm - automatically discovers obstacles and invalid routes and learns them permanently
+  - Shortest path routing for navigation (SSSP using Dijkstra's algorithm) - picks the best route to every destination intelligently
+  - Waypoints recording, visualization and optimization (optional)
+- Memory-reading engine
+  - Obtain information like HP, MP, coordinates, map information, target information, and more directly from game engine.
 - Others
   - Control game even when game is minimized
 
 # Getting Started
-
-## Waypoints
-
-### Record waypoints
-
-Run `main_record.py` and walk around in-game.
-
-When you stop it with CTRL+C, a recording<timestamp>.json will be created containing the waypoints.
-
-### Visualize waypoints
-
-<img src="./readme_resources/visualize.png" />
-
-The above shows a sample recording for Tam-Tara Deepcroft.
-
-Modify `main_visualize.py` and point it to your recording file.
-
-Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
-
-Run `main_visualize.py` to generate a visualization of your waypoints and the optimal route based on your start and end coordinates.
-
-### Test waypoints in-game
-
-Modify `main_walk.py` and point it to your recording file. (You may use the sample, which is in Ul'Dah. Start from the Ul'Dah Aetherite Plaza.)
-
-Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
-
-Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.
 
 ## Combat automation
 
@@ -105,12 +81,45 @@ Modify `main.py` with the following changes:
 
 Run `main.py` and have fun!
 
+## Waypoints
+
+Note:
+- Manual waypoint recording is optional / deprecated.
+- The current engine is able to intelligently learn the map in real-time without any prior recording.
+- These instructions here are only for developmental purposes.
+
+### Record waypoints
+
+Run `main_record.py` and walk around in-game.
+
+When you stop it with CTRL+C, a recording<timestamp>.json will be created containing the waypoints.
+
+### Visualize waypoints
+
+<img src="./readme_resources/visualize.png" />
+
+The above shows a sample recording for Tam-Tara Deepcroft.
+
+Modify `main_visualize.py` and point it to your recording file.
+
+Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
+
+Run `main_visualize.py` to generate a visualization of your waypoints and the optimal route based on your start and end coordinates.
+
+### Test waypoints in-game
+
+Modify `main_walk.py` and point it to your recording file. (You may use the sample, which is in Ul'Dah. Start from the Ul'Dah Aetherite Plaza.)
+
+Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
+
+Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.\
+
 # Additional tools
 
 ## Estimation tools
 
-Running `main_estimate_turn_speed.py` will give you a list of <hold duration, delta radians> values for linear regression plotting.
-- Current results show default keyboard turn speed to be `delta radians = 2.4 * hold duration + 0.055`
+Running `main_estimate_turn_speed.py` will give you a list of <hold duration, delta radians> values for linear regression plotting. Current results show default keyboard turn speed to be `delta radians = 2.4 * hold duration + 0.055`
 
-Running `main_estimate_walk_speed.py` will give you walking speed in yards/sec.
-- Current results show default character speed to be `6 yards/sec`.
+Running `main_estimate_walk_speed.py` will give you walking speed in yards/sec. Current results show default character speed to be `6 yards/sec`.
+
+Running `main_memory_check.py` will repeatedly print game object values read from memory (shows your current coordinates, rotation, and other information).
