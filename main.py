@@ -6,13 +6,12 @@ from main_visualize import OUTSIDE_CRYSTAL, TAMTARA_END
 
 def main():
     dungeon_config = {
-        'tamtara': {
-            'exit_coordinate': TAMTARA_END,
-            'map_id': 8,
-        },
         'uldah': {
             'exit_coordinate': OUTSIDE_CRYSTAL,
             'map_id': 13,
+        }, 'tamtara': {
+            'exit_coordinate': TAMTARA_END,
+            'map_id': 8,
         }
     }
     navigation_config = {

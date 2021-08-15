@@ -235,8 +235,7 @@ class DungeonState(enum.Enum):
     NAVIGATING_TO_TEAMMATE = 6
     SELECTING_ENEMY = 7
     CHECKING_ENEMY = 8
-    LINEAR_APPROACHING_TARGET = 9
-    ATTACKING = 10
+    ATTACKING = 9
 
 
 class DungeonTeammateState(enum.Enum):
@@ -390,10 +389,7 @@ class Bot:
                 keyboard_send_vk_as_scan_code(self.hwnd, win32api.VkKeyScanEx('r', 0))
 
     def get_turn_duration(self, radians, ensure_nonnegative=True):
-        # Delta Radians = 2.65 * Turn Duration + 0.0142
         # Delta Radians = 2.4 * Turn Duration + 0.055
-        # Delta Radians = 2.35 * Turn Duration + 0
-        # Why different?
         turn_speed = 2.4  # rad/s
         turn_min_amount = 0.055  # rad
         turn_duration = (abs(radians) - turn_min_amount) / turn_speed
@@ -738,6 +734,7 @@ class Bot:
             if self.map_id != self.navigation_map_id:
                 self.debounced_print('Map ID %s does not match expected %s, waiting.' % (self.map_id, self.navigation_map_id))
                 self.state_overall = DungeonState.SELECTING_ENEMY
+                teammate_state = DungeonTeammateState.TANK
                 self.cancel_routing_target()
                 if self.is_duty_found_window:
                     time.sleep(1)
@@ -788,10 +785,6 @@ class Bot:
                     self.debounced_print('No selection. Attempting to navigate dungeon')
                     self.state_overall = DungeonState.NAVIGATING_DUNGEON
                     continue
-                if self.target['is_battle_npc']:
-                    self.debounced_print('Enemy selected. Attempting to check enemy')
-                    self.state_overall = DungeonState.CHECKING_ENEMY
-                    continue
                 if not self.target['is_player_character']:
                     self.debounced_print('Non-player selected. Attempting to navigate dungeon')
                     self.state_overall = DungeonState.NAVIGATING_DUNGEON
@@ -805,11 +798,6 @@ class Bot:
                     self.debounced_print('No selection. Attempting to select teammate')
                     self.cancel_routing_target()
                     self.state_overall = DungeonState.TOGGLING_TEAMMATE
-                    continue
-                if self.target['is_battle_npc']:
-                    self.debounced_print('Enemy selected. Attempting to check enemy')
-                    self.cancel_routing_target()
-                    self.state_overall = DungeonState.CHECKING_ENEMY
                     continue
                 if not self.target['is_player_character']:
                     self.debounced_print('Non-player selected. Attempting to select teammate')
@@ -846,32 +834,10 @@ class Bot:
                     continue
                 if self.target['distance_xy'] > self.max_distance_to_target_high:
                     self.debounced_print('Enemy out of range. Attempting to select teammate')
-                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
+                    self.state_overall = DungeonState.SELECTING_TEAMMATE
                     continue
-                if self.target['name_id'] == 73:  # If Galvanth the dominator, target the DPS's target
-                    self.debounced_print('Galvanth detected. Attempting to acquire DPS target')
-                    self.get_dps_target()
-                    self.state_overall = DungeonState.LINEAR_APPROACHING_TARGET
                 self.debounced_print('Enemy in range. Attempting to attack enemy')
                 self.state_overall = DungeonState.ATTACKING
-
-            elif self.state_overall == DungeonState.LINEAR_APPROACHING_TARGET:
-                if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to select enemy')
-                    self.state_overall = DungeonState.SELECTING_ENEMY
-                    continue
-                if not (self.target['is_battle_npc'] and self.target['is_damaged']):
-                    self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
-                    self.state_overall = DungeonState.SELECTING_ENEMY
-                    continue
-                if self.target['distance_xy'] < self.max_distance_to_target_high:
-                    self.debounced_print('Enemy in range. Attempting to attack')
-                    self.state_overall = DungeonState.ATTACKING
-                    continue
-                self.debounced_print('Enemy out of range range. Attempting to approach enemy')
-                self.turn_to_target(self.target['x'], self.target['y'])
-                self.ensure_walking_state(True)
-                time.sleep(0.05)
 
             elif self.state_overall == DungeonState.ATTACKING:
                 if not self.target_acquired:
@@ -923,11 +889,10 @@ class Bot:
                 self.debounced_print('Enemy in range. Attacking!')
                 self.confirm_state_attack()
                 self.attack()
-                if self.target['name_id'] == 73:  # If Galvanth the dominator, target the DPS's target
-                    self.debounced_print('Galvanth detected. Attempting to acquire DPS target')
+                if self.target['name_id'] == 73:  # Galvanth the dominator
+                    self.debounced_print('Galvanth detected. Attempting to select DPS target')
                     teammate_state = DungeonTeammateState.DPS
-                    self.get_dps_target()
-                    self.state_overall = DungeonState.LINEAR_APPROACHING_TARGET
+                    self.state_overall = DungeonState.SELECTING_ENEMY
 
     def record(self, interval=0.1):
         print('Recording!')
