@@ -36,7 +36,7 @@ Experimental bot for Final Fantasy XIV. Still largely WIP.
 - Navigation engine
   - Human-like in-game character control - behave and move exactly like a controller player
   - Real-time simultaneous localization and mapping (SLAM) - learns topology of maps without any prior hardcoding or waypoints recording
-  - Fast stuck detection and resolution algorithm - automatically discovers obstacles and invalid routes and learns them permanently
+  - Fast stuck detection and resolution algorithm - automatically discovers and reroutes across obstacles and learns them permanently
   - Shortest path routing for navigation (SSSP using Dijkstra's algorithm) - picks the best route to every destination intelligently
   - Waypoints recording, visualization and optimization (optional)
 - Memory-reading engine

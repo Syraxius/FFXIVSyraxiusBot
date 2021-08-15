@@ -4,7 +4,7 @@ monkey.patch_all()
 import time
 
 from botlib.bot import Bot
-from main_visualize import CRYSTAL, OUTSIDE_CRYSTAL, GATE, SHOP, BRASSBLADE, CACTUARS
+from main_visualize import CRYSTAL, GATE
 
 
 def walk(bot, destination):
