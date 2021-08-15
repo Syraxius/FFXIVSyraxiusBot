@@ -1,7 +1,7 @@
 import signal
 
 from botlib.jobs.blackmage import BlackMageBot
-from main_visualize import CRYSTAL, OUTSIDE_CRYSTAL, GATE, SHOP, BRASSBLADE, CACTUARS, SATASHA_START, SATASHA_END, TAMTARA_START, TAMTARA_END
+from main_visualize import OUTSIDE_CRYSTAL, TAMTARA_END
 
 
 def main():
@@ -9,10 +9,6 @@ def main():
         'tamtara': {
             'exit_coordinate': TAMTARA_END,
             'map_id': 8,
-        },
-        'brayflox': {
-            'exit_coordinate': TAMTARA_END,
-            'map_id': 37,
         },
         'uldah': {
             'exit_coordinate': OUTSIDE_CRYSTAL,
@@ -31,7 +27,7 @@ def main():
             'custom_cache_name': 'caches/tamtaracombined.cache',
         }
     }
-    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['brayflox'], navigation_config=navigation_config['empty'])
+    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['tamtara'])
 
     def handler(signum, frame):
         bot.stop_all()

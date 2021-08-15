@@ -3,8 +3,8 @@ import math
 import os
 import pickle
 
-debouncing_distance = 1.5
-connecting_distance = 6
+debouncing_distance = 1.0
+connecting_distance = 3.0
 
 
 def get_euclidean_distance(coordinate_a, coordinate_b):
@@ -67,7 +67,6 @@ def generate_adjacency_list(coordinates, existing_adjacency_list):
     if existing_adjacency_list:
         adjacency_list = existing_adjacency_list
     prev_adjacency_list_node = None
-    index_offset = len(adjacency_list)
     for index in range(len(coordinates)):
         coordinate = coordinates[index]
         curr_adjacency_list_node = add_to_adjacency_list(coordinate, adjacency_list)

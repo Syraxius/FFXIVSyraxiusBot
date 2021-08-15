@@ -295,7 +295,7 @@ class Bot:
         handle = open_process_vm_read_handle(self.hwnd)
 
         # Build own game object
-        self.own = build_game_object(self.hwnd, self.base_address, address_descriptions['own_pointer']['base_address_offset'])
+        self.own = build_game_object(self.hwnd, self.base_address, address_descriptions['teammate1_pointer']['base_address_offset'])
 
         # Build target game object
         self.target_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['target_pointer']) != 0
@@ -545,6 +545,7 @@ class Bot:
         self.curr_node = None
         self.prev_node = None
         self.target_coordinate = None
+        self.prev_distance_delta = None
         if not continue_walking:
             self.ensure_walking_state(False)
 
@@ -591,15 +592,14 @@ class Bot:
                     self.shortest_path = self.w.get_shortest_path_coordinates(self.get_own_coordinate(), self.target_coordinate)
                 self.curr_node = None
                 self.prev_node = None
-                self.prev_distance_delta = None
                 return True
+        self.prev_distance_delta = distance_delta
         if distance_delta < 1:
-            self.prev_node = self.curr_node
             self.curr_node = None
+            self.prev_node = self.curr_node
         else:
             self.turn_to_target(self.curr_node.coordinate[0], self.curr_node.coordinate[1])
             self.ensure_walking_state(True)
-        self.prev_distance_delta = distance_delta
         time.sleep(0.05)
         return True
 

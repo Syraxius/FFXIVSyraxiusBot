@@ -28,8 +28,8 @@ class WaypointRouter:
     def add_to_adjacency_list(self, coordinate, can_add_unconnected=False):
         nearest = self.get_closest_adjacency_list_node(coordinate)
         if not nearest:
-            node = AdjacencyListNode(1, coordinate)
-            self.adjacency_list.append(AdjacencyListNode(1, coordinate))
+            node = AdjacencyListNode(0, coordinate)
+            self.adjacency_list.append(node)
             return node
         distance = get_euclidean_distance(nearest.coordinate, coordinate)
         if can_add_unconnected:
@@ -59,12 +59,14 @@ class WaypointRouter:
         if not nearest_adjacency_list_node_a or not nearest_adjacency_list_node_b:
             return []
         parent = {nearest_adjacency_list_node_a.index: nearest_adjacency_list_node_a.index}
-        distance = {nearest_adjacency_list_node_a.index : 0}
+        distance = {nearest_adjacency_list_node_a.index: 0}
         pq = PriorityQueue()
         pq.put((0, nearest_adjacency_list_node_a.index, nearest_adjacency_list_node_a))
         while pq:
             # print(parent)
             curr_distance, _, curr_node = pq.get()
+            if curr_distance > distance.get(curr_node.index, 999999):
+                continue
             for neighbor in curr_node.neighbors:
                 neighbor_node = self.adjacency_list[neighbor]
                 curr_neighbor_distance = curr_distance + get_euclidean_distance(curr_node.coordinate, neighbor_node.coordinate)

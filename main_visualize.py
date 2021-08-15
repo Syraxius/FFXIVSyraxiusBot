@@ -1,10 +1,11 @@
 from waypointlib.routing import WaypointRouter
 from waypointlib.visualize import visualize_coordinates
+from waypointlib.optimize import get_euclidean_distance
 
 # sampleuldah.json
 SHOP = [-68.68133544921875, -110.83563232421875, 4.611909866333008]
 GATE = [-166.8415069580078, -15.939008712768555, 13.29746150970459]
-CRYSTAL = [-155.56903076171875, -157.19174194335938, -2.0]
+CRYSTAL = [-153.48963928222656, -155.07110595703125, -2.0]
 OUTSIDE_CRYSTAL = [-133.09352111816406, -127.75234985351562, 2.0]
 
 # samplewestthanalan.json
