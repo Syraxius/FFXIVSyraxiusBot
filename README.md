@@ -117,13 +117,13 @@ Modify `main_walk.py` and point it to your recording file. (You may use the samp
 
 Specify the start and end coordinates for the shortest path routing. (You can try using the first and end coordinates in your recording JSON file.)
 
-Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.\
+Run `main_walk.py` to walk your character between the waypoints nearest to the coordinates you specified.
 
 # Additional tools
 
 ## Estimation tools
 
-Running `main_estimate_turn_speed.py` will give you a list of <hold duration, delta radians> values for linear regression plotting. Current results show default keyboard turn speed to be `delta radians = 2.4 * hold duration + 0.055`
+Running `main_estimate_turn_speed.py` will give you a list of `<hold duration, delta radians>` values for linear regression plotting. Current results show default keyboard turn speed to be `delta radians = 2.4 * hold duration + 0.055`
 
 Running `main_estimate_walk_speed.py` will give you walking speed in yards/sec. Current results show default character speed to be `6 yards/sec`.
 
