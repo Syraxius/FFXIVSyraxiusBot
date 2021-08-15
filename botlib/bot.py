@@ -90,34 +90,47 @@ game_object_fields = {
         'datatype': 'string',
         'length': 64
     },
+
+    'object_id': {
+        'pointer_offsets': (0x74,),
+        'datatype': 'integer',
+    },
+
     'object_kind': {
         'pointer_offsets': (0x8C,),
         'datatype': 'byte',
     },
+
     'sub_kind': {
         'pointer_offsets': (0x8D,),
         'datatype': 'byte',
     },
+
     'distance_xy': {
         'pointer_offsets': (0x90,),
         'datatype': 'byte',
     },
+
     'distance_z': {
         'pointer_offsets': (0x92,),
         'datatype': 'byte',
     },
+
     'x': {
         'pointer_offsets': (0xA0,),
         'datatype': 'float',
     },
+
     'y': {
         'pointer_offsets': (0xA8,),
         'datatype': 'float',
     },
+
     'z': {
         'pointer_offsets': (0xA4,),
         'datatype': 'float',
     },
+
     'game_rotation': {
         'pointer_offsets': (0xB0,),
         'datatype': 'float',
@@ -129,38 +142,47 @@ battle_character_fields = {
         'pointer_offsets': (0x1C4,),
         'datatype': 'integer',
     },
+
     'hp_max': {
         'pointer_offsets': (0x1C8,),
         'datatype': 'integer',
     },
+
     'mp': {
         'pointer_offsets': (0x1CC,),
         'datatype': 'integer',
     },
+
     'mp_max': {
         'pointer_offsets': (0x1D0,),
         'datatype': 'integer',
     },
+
     'class_job': {
         'pointer_offsets': (0x1E2,),
         'datatype': 'byte',
     },
+
     'level': {
         'pointer_offsets': (0x1E3,),
         'datatype': 'byte',
     },
+
     'name_id': {
         'pointer_offsets': (0x1940,),
         'datatype': 'integer',
     },
+
     'is_casting': {
         'pointer_offsets': (0x1B80+0x00,),
         'datatype': 'byte',
     },
+
     'curr_cast_time': {
         'pointer_offsets': (0x1B80+0x34,),
         'datatype': 'float',
     },
+
     'total_cast_time': {
         'pointer_offsets': (0x1B80+0x38,),
         'datatype': 'float',
@@ -275,6 +297,7 @@ class Bot:
         self.curr_cast_time = None
         self.total_cast_time = None
         self.cast_attempt_timestamp = None
+        self.prev_enemy_object_id = None
 
         self.max_distance_to_teammate = 5
         self.max_distance_to_target_low = 10
@@ -298,7 +321,7 @@ class Bot:
         self.own = build_game_object(self.hwnd, self.base_address, address_descriptions['teammate1_pointer']['base_address_offset'])
 
         # Build target game object
-        self.target_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['target_pointer']) != 0
+        self.target_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['target_pointer'])
         if self.target_acquired:
             self.target = build_game_object(self.hwnd, self.base_address, address_descriptions['target_pointer']['base_address_offset'])
         else:
@@ -318,25 +341,25 @@ class Bot:
 
         self.map_id = get_memory_value(self.hwnd, self.base_address, address_descriptions['map_id'], external_handle=handle)
 
-        self.teammate1_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate1_pointer']) != 0
+        self.teammate1_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate1_pointer'])
         if self.teammate1_acquired:
             self.teammate1 = build_game_object(self.hwnd, self.base_address, address_descriptions['teammate1_pointer']['base_address_offset'])
         else:
             self.teammate1 = None
 
-        self.teammate2_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate2_pointer']) != 0
+        self.teammate2_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate2_pointer'])
         if self.teammate2_acquired:
             self.teammate2 = build_game_object(self.hwnd, self.base_address, address_descriptions['teammate2_pointer']['base_address_offset'])
         else:
             self.teammate2 = None
 
-        self.teammate3_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate3_pointer']) != 0
+        self.teammate3_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate3_pointer'])
         if self.teammate3_acquired:
             self.teammate3 = build_game_object(self.hwnd, self.base_address, address_descriptions['teammate3_pointer']['base_address_offset'])
         else:
             self.teammate3 = None
 
-        self.teammate4_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate4_pointer']) != 0
+        self.teammate4_acquired = get_memory_value(self.hwnd, self.base_address, address_descriptions['teammate4_pointer'])
         if self.teammate4_acquired:
             self.teammate4 = build_game_object(self.hwnd, self.base_address, address_descriptions['teammate4_pointer']['base_address_offset'])
         else:
@@ -517,6 +540,9 @@ class Bot:
         else:
             self.get_dps_target()
 
+    def cancel(self):
+        keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_ESCAPE)
+
     def use_nearest_npc_or_object(self):
         keyboard_send_vk_as_scan_code(self.hwnd, win32con.VK_F12)  # Hotkey for targeting nearest NPC or object
         time.sleep(0.1)
@@ -671,11 +697,16 @@ class Bot:
                     self.debounced_print('Still moving, waiting for stop')
                     time.sleep(0.1)
                     continue
+                if self.own['is_casting'] == 1 and self.target['is_battle_npc'] and self.prev_enemy_object_id != self.target['object_id']:
+                    self.cancel()
+                    time.sleep(0.05)
+                    continue
                 if self.own['is_casting'] == 1:
                     self.clear_cast_attempt()
                     self.set_cast_time()
                     time.sleep(0.05)
                     continue
+                self.prev_enemy_object_id = self.target['object_id']
                 if self.get_cast_attempt_expired():
                     self.debounced_print('Cast attempt expired. Attempting to acquire enemy')
                     self.rollback_state_attack()
@@ -861,11 +892,16 @@ class Bot:
                     self.clear_cast_attempt()
                     self.state_overall = DungeonState.SELECTING_ENEMY
                     continue
+                if self.own['is_casting'] == 1 and self.target['is_battle_npc'] and self.prev_enemy_object_id != self.target['object_id']:
+                    self.cancel()
+                    time.sleep(0.05)
+                    continue
                 if self.own['is_casting'] == 1:
                     self.clear_cast_attempt()
                     self.set_cast_time()
                     time.sleep(0.05)
                     continue
+                self.prev_enemy_object_id = self.target['object_id']
                 if self.get_cast_attempt_expired():
                     self.debounced_print('Cast attempt expired. Attempting to select teammate')
                     self.rollback_state_attack()
