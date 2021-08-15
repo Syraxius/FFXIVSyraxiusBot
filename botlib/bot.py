@@ -581,6 +581,8 @@ class Bot:
         self.shortest_path = self.w.get_shortest_path_coordinates(a, b)
 
     def walk_to_routing_target(self, target_coordinate=None, reinit_if_empty=True, reinit_if_different=False):
+        if not target_coordinate:
+            return False
         if reinit_if_different:
             if self.target_coordinate != target_coordinate:
                 self.init_routing_target(target_coordinate)

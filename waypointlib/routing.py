@@ -1,4 +1,4 @@
-from queue import PriorityQueue
+from queue import PriorityQueue, Empty
 
 from .optimize import generate_optimized_adjacency_list_from_file, get_euclidean_distance, debouncing_distance, connecting_distance, add_to_adjacency_list, AdjacencyListNode, save_adjacency_list_to_file, load_adjacency_list_from_file
 
@@ -64,7 +64,11 @@ class WaypointRouter:
         pq.put((0, nearest_adjacency_list_node_a.index, nearest_adjacency_list_node_a))
         while pq:
             # print(parent)
-            curr_distance, _, curr_node = pq.get()
+            try:
+                curr_distance, _, curr_node = pq.get(block=False)
+            except Empty:
+                print('No suitable path found')
+                return []
             if curr_distance > distance.get(curr_node.index, 999999):
                 continue
             for neighbor in curr_node.neighbors:
