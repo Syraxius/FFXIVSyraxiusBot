@@ -12,7 +12,7 @@ import win32api
 import win32con
 
 from botlib.control import keyboard_send_vk_as_scan_code
-from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, open_process_vm_read_handle, close_process_vm_read_handle, get_memory_value, get_multiple_memory_values
+from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, open_process_vm_read_handle, close_process_vm_handle, get_memory_value, set_memory_value, get_multiple_memory_values
 from waypointlib.routing import get_euclidean_distance, WaypointRouter
 
 address_descriptions = {
@@ -81,6 +81,24 @@ address_descriptions = {
         'base_address_offset': 0x01D69F68,
         'pointer_offsets': (),
         'datatype': 'integer',
+    },
+
+    'character_rotation': {  # Search for character rotation directly
+        'base_address_offset': 0x01DB8210,
+        'pointer_offsets': (0xB0,),
+        'datatype': 'float',
+    },
+
+    'character_rotation_1': {  # math.cos(bot.character_rotation / 2)
+        'base_address_offset': 0x01DBBE20,
+        'pointer_offsets': (0x758, 0x6C),
+        'datatype': 'float',
+    },
+
+    'character_rotation_2': {  # math.sin(bot.character_rotation / 2)
+        'base_address_offset': 0x01DBBE20,
+        'pointer_offsets': (0x758, 0x64),
+        'datatype': 'float',
     },
 }
 
@@ -191,8 +209,8 @@ battle_character_fields = {
 
 
 def game_to_normal_rotation(game_rotation):
-    # Before: +-0 is south. +-pi is north.  pi/2 is east. -pi/2 is west.
-    # After: +-0 is east. +pi/2 is north.  +pi is west. +pi*3/2 is south.
+    # Before: +-0 is south. +-pi is north. pi/2 is east. -pi/2 is west.
+    # After: +-0 is east. +pi/2 is north. +pi is west. +pi*3/2 is south.
     if 0 <= game_rotation < math.pi / 2:
         return game_rotation + math.pi * 3 / 2
     elif math.pi / 2 <= game_rotation < math.pi:
@@ -201,6 +219,19 @@ def game_to_normal_rotation(game_rotation):
         return game_rotation + math.pi * 3 / 2
     elif -math.pi / 2 <= game_rotation < 0:
         return game_rotation + math.pi * 3 / 2
+
+
+def normal_to_game_rotation(normal_rotation):
+    # Before: +-0 is east. +pi/2 is north. +pi is west. +pi*3/2 is south.
+    # After: +-0 is south. +-pi is north. pi/2 is east. -pi/2 is west.
+    if 0 <= normal_rotation < math.pi / 2:
+        return normal_rotation + math.pi / 2
+    elif math.pi / 2 <= normal_rotation < math.pi:
+        return normal_rotation - math.pi * 3 / 2
+    elif math.pi <= normal_rotation < math.pi * 3 / 4:
+        return normal_rotation - math.pi * 3 / 2
+    elif math.pi * 3 / 4 <= normal_rotation < math.pi * 2:
+        return normal_rotation - math.pi * 3 / 2
 
 
 def build_game_object(hwnd, base_address, base_address_offset):
@@ -333,7 +364,7 @@ class Bot:
         self.is_waiting_for_duty = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_waiting_for_duty'], external_handle=handle) == 1
         self.is_duty_found_window = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_duty_found_window'], external_handle=handle) == b'ui/uld/NotificationItem.uld'
 
-        close_process_vm_read_handle(handle)
+        close_process_vm_handle(handle)
 
     def scan_coordinates(self):
         handle = open_process_vm_read_handle(self.hwnd)
@@ -364,7 +395,7 @@ class Bot:
         else:
             self.teammate4 = None
 
-        close_process_vm_read_handle(handle)
+        close_process_vm_handle(handle)
 
     def get_own_coordinate(self):
         return [self.own['x'], self.own['y'], self.own['z']]
@@ -432,12 +463,22 @@ class Bot:
         direction_delta = abs(final_direction)
         return distance_delta, direction_delta, is_turn_left
 
-    def turn_to_target(self, target_x, target_y):
-        distance_delta, direction_delta, is_turn_left = self.calculate_navigation(target_x, target_y)
-        if is_turn_left:
-            self.turn_by_radians('left', direction_delta)
-        else:
-            self.turn_by_radians('right', direction_delta)
+    def turn_to_game_rotation(self, game_rotation):
+        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation'], game_rotation)
+        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_1'], math.cos(game_rotation / 2))
+        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_2'], math.sin(game_rotation / 2))
+
+    def turn_to_target(self, target_x, target_y, traditional=False):
+        if traditional:
+            distance_delta, direction_delta, is_turn_left = self.calculate_navigation(target_x, target_y)
+            if is_turn_left:
+                self.turn_by_radians('left', direction_delta)
+            else:
+                self.turn_by_radians('right', direction_delta)
+            return
+        normal_rotation = self.get_target_direction(target_x, target_y)
+        game_rotation = normal_to_game_rotation(normal_rotation)
+        self.turn_to_game_rotation(game_rotation)
 
     def change_state_attack(self, state_attack):
         self.prev_state_attack = self.state_attack

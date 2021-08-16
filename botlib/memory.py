@@ -6,6 +6,7 @@ import win32api
 import win32con
 import win32gui
 import win32process
+import win32security
 
 
 def get_winlist():
@@ -31,41 +32,61 @@ def get_hwnd_base_address(hwnd):
     return base_address
 
 
+def get_privilege(privilege_name='SeDebugPrivilege'):
+    # Adapted from: https://github.com/hacksysteam/WpadEscape/blob/master/inject-dll.py
+    # The SeDebugPrivilege is required to write to memory
+    success = False
+    privilege_id = win32security.LookupPrivilegeValue(None, privilege_name)
+    new_privilege = [(privilege_id, win32con.SE_PRIVILEGE_ENABLED)]
+    h_token = win32security.OpenProcessToken(win32process.GetCurrentProcess(), win32security.TOKEN_ALL_ACCESS)
+    if h_token:
+        success = win32security.AdjustTokenPrivileges(h_token, 0, new_privilege)
+        win32api.CloseHandle(h_token)
+    return success
+
+
 def open_process_vm_read_handle(hwnd):
     # Specify the params and return type of ReadProcessMemory
     # https://stackoverflow.com/questions/33855690/trouble-with-readprocessmemory-in-python-to-read-64bit-process-memory
     ctypes.windll.kernel32.ReadProcessMemory.argtypes = [wintypes.HANDLE, wintypes.LPCVOID, wintypes.LPVOID, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t)]
     ctypes.windll.kernel32.ReadProcessMemory.restype = wintypes.BOOL
 
-    process_vm_read = 0x0010  # Permission
+    PROCESS_VM_READ = 0x0010
     pid = win32process.GetWindowThreadProcessId(hwnd)[1]
-    handle = ctypes.windll.kernel32.OpenProcess(process_vm_read, False, pid)
+    handle = ctypes.windll.kernel32.OpenProcess(PROCESS_VM_READ, False, pid)
 
     return handle
 
 
-def close_process_vm_read_handle(handle):
+def open_process_vm_write_handle(hwnd):
+    ctypes.windll.kernel32.WriteProcessMemory.argtypes = [wintypes.HANDLE, wintypes.LPCVOID, wintypes.LPVOID, ctypes.c_size_t, ctypes.POINTER(ctypes.c_size_t)]
+    ctypes.windll.kernel32.WriteProcessMemory.restype = wintypes.BOOL
+
+    # Get SeDebugPrivilege
+    get_privilege()
+
+    # https://docs.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights
+    # PROCESS_VM_WRITE and PROCESS_VM_OPERATION are required for WriteProcessMemory
+    PROCESS_VM_WRITE = 0x0020
+    PROCESS_VM_OPERATION = 0x0008
+    PROCESS_ALL_ACCESS = (PROCESS_VM_WRITE | PROCESS_VM_OPERATION)
+    pid = win32process.GetWindowThreadProcessId(hwnd)[1]
+    handle = ctypes.windll.kernel32.OpenProcess(PROCESS_ALL_ACCESS, False, pid)
+
+    return handle
+
+
+def close_process_vm_handle(handle):
     ctypes.windll.kernel32.CloseHandle(handle)
 
 
-def get_memory_value(hwnd, base_address, address_description, external_handle=None):
+def get_final_address(hwnd, base_address, address_description, external_handle=None):
     if external_handle:
         handle = external_handle
     else:
         handle = open_process_vm_read_handle(hwnd)
 
     address_buffer = ctypes.c_uint64()
-    if address_description['datatype'] == 'integer':
-        final_buffer = ctypes.c_uint32()
-    elif address_description['datatype'] == 'byte':
-        final_buffer = ctypes.c_uint8()
-    elif address_description['datatype'] == 'float':
-        final_buffer = ctypes.c_float()
-    elif address_description['datatype'] == 'string':
-        final_buffer = ctypes.create_string_buffer(address_description['length'])
-    elif address_description['datatype'] == 'byte_array':
-        final_buffer = ctypes.c_byte * address_description['length']
-
     base_pointer = base_address + address_description['base_address_offset']
     if len(address_description['pointer_offsets']) > 0:
         ctypes.windll.kernel32.ReadProcessMemory(handle, base_pointer, ctypes.byref(address_buffer), ctypes.sizeof(address_buffer), None)
@@ -80,11 +101,31 @@ def get_memory_value(hwnd, base_address, address_description, external_handle=No
     else:
         next_address = base_pointer
 
-    ctypes.windll.kernel32.ReadProcessMemory(handle, next_address, ctypes.byref(final_buffer), ctypes.sizeof(final_buffer), None)
+    return next_address
+
+
+def get_memory_value(hwnd, base_address, address_description, external_handle=None):
+    if external_handle:
+        handle = external_handle
+    else:
+        handle = open_process_vm_read_handle(hwnd)
+
+    if address_description['datatype'] == 'integer':
+        final_buffer = ctypes.c_uint32()
+    elif address_description['datatype'] == 'byte':
+        final_buffer = ctypes.c_uint8()
+    elif address_description['datatype'] == 'float':
+        final_buffer = ctypes.c_float()
+    elif address_description['datatype'] == 'string':
+        final_buffer = ctypes.create_string_buffer(address_description['length'])
+
+    final_address = get_final_address(hwnd, base_address, address_description, external_handle=handle)
+
+    ctypes.windll.kernel32.ReadProcessMemory(handle, final_address, ctypes.byref(final_buffer), ctypes.sizeof(final_buffer), None)
     curr_value = final_buffer.value
 
     if not external_handle:
-        close_process_vm_read_handle(handle)
+        close_process_vm_handle(handle)
 
     return curr_value
 
@@ -97,3 +138,26 @@ def get_multiple_memory_values(hwnd, base_address, base_address_offset, partial_
         address_description['base_address_offset'] = base_address_offset
         memory_values[name] = get_memory_value(hwnd, base_address, address_description)
     return memory_values
+
+
+def set_memory_value(hwnd, base_address, address_description, value, external_read_handle=None, external_write_handle=None):
+    if external_read_handle:
+        read_handle = external_read_handle
+    else:
+        read_handle = open_process_vm_read_handle(hwnd)
+
+    if external_write_handle:
+        write_handle = external_write_handle
+    else:
+        write_handle = open_process_vm_write_handle(hwnd)
+
+    final_address = get_final_address(hwnd, base_address, address_description, external_handle=read_handle)
+
+    if address_description['datatype'] == 'integer':
+        final_buffer = ctypes.c_uint32(value)
+    elif address_description['datatype'] == 'byte':
+        final_buffer = ctypes.c_uint8(value)
+    elif address_description['datatype'] == 'float':
+        final_buffer = ctypes.c_float(value)
+
+    ctypes.windll.kernel32.WriteProcessMemory(write_handle, final_address, ctypes.byref(final_buffer), ctypes.sizeof(final_buffer), None)
