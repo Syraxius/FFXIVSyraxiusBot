@@ -468,7 +468,7 @@ class Bot:
         set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_1'], math.cos(game_rotation / 2))
         set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_2'], math.sin(game_rotation / 2))
 
-    def turn_to_target(self, target_x, target_y, traditional=False):
+    def turn_to_target(self, target_x, target_y, traditional=True):
         if traditional:
             distance_delta, direction_delta, is_turn_left = self.calculate_navigation(target_x, target_y)
             if is_turn_left:

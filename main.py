@@ -29,7 +29,7 @@ def main():
             'custom_cache_name': 'caches/tamtaracombined.cache',
         }
     }
-    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['totorak'])
+    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['tamtara'])
 
     def handler(signum, frame):
         bot.stop_all()
