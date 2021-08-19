@@ -40,22 +40,25 @@ class WaypointRouter:
                 return add_to_adjacency_list(coordinate, self.adjacency_list)
         return None
 
-    def get_closest_adjacency_list_node(self, coordinate):
+    def get_closest_adjacency_list_node(self, coordinate, avoid_coordinate=None, avoid_radius=None):
         closest_adjacency_list_node = None
         closest_distance = 999999
         for adjacency_list_node in self.adjacency_list:
             if closest_adjacency_list_node is None:
                 closest_adjacency_list_node = adjacency_list_node
+            if avoid_coordinate and avoid_radius:
+                if get_euclidean_distance(avoid_coordinate, adjacency_list_node.coordinate) < avoid_radius:
+                    continue
             curr_distance = get_euclidean_distance(coordinate, adjacency_list_node.coordinate)
             if curr_distance < closest_distance:
                 closest_adjacency_list_node = adjacency_list_node
                 closest_distance = curr_distance
         return closest_adjacency_list_node
 
-    def get_shortest_path(self, coordinate_a, coordinate_b):
+    def get_shortest_path(self, coordinate_a, coordinate_b, avoid_coordinate=None, avoid_radius=None):
         # print_adjacency_list(self.adjacency_list)
         nearest_adjacency_list_node_a = self.get_closest_adjacency_list_node(coordinate_a)
-        nearest_adjacency_list_node_b = self.get_closest_adjacency_list_node(coordinate_b)
+        nearest_adjacency_list_node_b = self.get_closest_adjacency_list_node(coordinate_b, avoid_coordinate=avoid_coordinate, avoid_radius=avoid_radius)
         if not nearest_adjacency_list_node_a or not nearest_adjacency_list_node_b:
             return []
         parent = {nearest_adjacency_list_node_a.index: nearest_adjacency_list_node_a.index}
@@ -92,8 +95,8 @@ class WaypointRouter:
         else:
             return []
 
-    def get_shortest_path_coordinates(self, coordinate_a, coordinate_b):
-        path = self.get_shortest_path(coordinate_a, coordinate_b)
+    def get_shortest_path_coordinates(self, coordinate_a, coordinate_b, avoid_coordinate=None, avoid_radius=None):
+        path = self.get_shortest_path(coordinate_a, coordinate_b, avoid_coordinate=avoid_coordinate, avoid_radius=avoid_radius)
         coordinates = []
         for i in path:
             coordinates.append(self.adjacency_list[i])

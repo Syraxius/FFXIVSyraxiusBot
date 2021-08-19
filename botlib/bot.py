@@ -252,9 +252,10 @@ def build_game_object(hwnd, base_address, base_address_offset):
 
 
 class AssistState(enum.Enum):
-    ACQUIRING_ENEMY = 1
+    SELECTING_ENEMY = 1
     NAVIGATING_ENEMY = 2
     ATTACKING = 3
+    AOE_AVOIDANCE_NAVIGATION = 4
 
 
 class DungeonState(enum.Enum):
@@ -267,6 +268,7 @@ class DungeonState(enum.Enum):
     SELECTING_ENEMY = 7
     CHECKING_ENEMY = 8
     ATTACKING = 9
+    AOE_AVOIDANCE_NAVIGATION = 10
 
 
 class DungeonTeammateState(enum.Enum):
@@ -331,7 +333,7 @@ class Bot:
 
         self.max_distance_to_teammate = 5
         self.max_distance_to_target_low = 10
-        self.max_distance_to_target_high = 20
+        self.max_distance_to_target_high = 24
 
         self.stop = False
         self.workers = []
@@ -468,7 +470,7 @@ class Bot:
         set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_1'], math.cos(game_rotation / 2))
         set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_2'], math.sin(game_rotation / 2))
 
-    def turn_to_target(self, target_x, target_y, traditional=True):
+    def turn_to_target(self, target_x, target_y, traditional=False):
         if traditional:
             distance_delta, direction_delta, is_turn_left = self.calculate_navigation(target_x, target_y)
             if is_turn_left:
@@ -612,21 +614,21 @@ class Bot:
         if not continue_walking:
             self.ensure_walking_state(False)
 
-    def init_routing_target(self, target_coordinate, continue_walking=False):
+    def init_routing_target(self, target_coordinate, continue_walking=False, avoid_coordinate=None, avoid_radius=None):
         if not self.w:
             return
         self.cancel_routing_target(continue_walking=continue_walking)
         self.target_coordinate = target_coordinate
         a = self.get_own_coordinate()
         b = target_coordinate
-        self.shortest_path = self.w.get_shortest_path_coordinates(a, b)
+        self.shortest_path = self.w.get_shortest_path_coordinates(a, b, avoid_coordinate=avoid_coordinate, avoid_radius=avoid_radius)
 
-    def walk_to_routing_target(self, target_coordinate=None, reinit_if_empty=True, reinit_if_different=False):
+    def walk_to_routing_target(self, target_coordinate=None, reinit_if_empty=True, reinit_if_different=False, avoid_coordinate=None, avoid_radius=None):
         if not target_coordinate:
             return False
         if reinit_if_different:
             if self.target_coordinate != target_coordinate:
-                self.init_routing_target(target_coordinate)
+                self.init_routing_target(target_coordinate, avoid_coordinate=avoid_coordinate, avoid_radius=avoid_radius)
         if self.curr_node is None:
             if len(self.shortest_path) == 0:
                 if reinit_if_empty and target_coordinate:
@@ -637,7 +639,7 @@ class Bot:
                         current_direction = self.get_current_direction()
                         delta_x = 3 * math.cos(current_direction)
                         delta_y = -(3 * math.sin(current_direction))
-                    self.init_routing_target([target_coordinate[0] + delta_x, target_coordinate[1] + delta_y], continue_walking=True)
+                    self.init_routing_target([target_coordinate[0] + delta_x, target_coordinate[1] + delta_y], continue_walking=True, avoid_coordinate=avoid_coordinate, avoid_radius=avoid_radius)
                 else:
                     self.ensure_walking_state(False)
                     return False
@@ -648,7 +650,7 @@ class Bot:
         distance_delta, direction_delta, is_turn_left = self.calculate_navigation(self.curr_node.coordinate[0], self.curr_node.coordinate[1])
         if self.prev_distance_delta:
             if self.prev_distance_delta - distance_delta < 0.01 and self.is_moving == 1:
-                self.debounced_print('STUCK!!!')
+                self.debounced_print('Stuck detected!')
                 if self.prev_node:
                     self.debounced_print('Unlinking %s from %s' % (self.prev_node.index, self.curr_node.index))
                     self.prev_node.unlink_from(self.curr_node)
@@ -670,16 +672,16 @@ class Bot:
 
     def start(self):
         if self.mode == 'assist':
-            self.state_overall = AssistState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.SELECTING_ENEMY
             self.start_assist(autotarget=False, autoapproach=False)
         elif self.mode == 'assist_autotarget':
-            self.state_overall = AssistState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.SELECTING_ENEMY
             self.start_assist(autotarget=True, autoapproach=False)
         elif self.mode == 'assist_autotarget_autoapproach':
-            self.state_overall = AssistState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.SELECTING_ENEMY
             self.start_assist(autotarget=True, autoapproach=True)
         elif self.mode == 'assist_autoapproach':
-            self.state_overall = AssistState.ACQUIRING_ENEMY
+            self.state_overall = AssistState.SELECTING_ENEMY
             self.start_assist(autotarget=False, autoapproach=True)
         elif self.mode == 'dungeon':
             self.state_overall = DungeonState.SELECTING_TEAMMATE
@@ -694,79 +696,107 @@ class Bot:
                 print(self.state_overall)
             last_state = self.state_overall
 
-            if self.state_overall == AssistState.ACQUIRING_ENEMY:
+            if self.state_overall == AssistState.SELECTING_ENEMY:
                 if self.target_acquired:
-                    self.debounced_print('Selection acquired. Navigating to enemy')
+                    self.debounced_print('Enemy selected. Attempting to navigate to enemy.')
                     self.state_overall = AssistState.NAVIGATING_ENEMY
                     continue
                 if autotarget:
-                    self.debounced_print('No selection. Attempting to select enemy')
+                    self.debounced_print('No enemy selected. Attempting to select enemy.')
                     self.get_nearest_enemy()
                 time.sleep(0.1)
 
             elif self.state_overall == AssistState.NAVIGATING_ENEMY:
                 if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to acquire enemy')
+                    self.debounced_print('No enemy selected. Attempting to select enemy.')
                     if autoapproach:
                         self.ensure_walking_state(False)
-                    self.state_overall = AssistState.ACQUIRING_ENEMY
+                    self.state_overall = AssistState.SELECTING_ENEMY
                     continue
                 if self.target['distance_xy'] < self.max_distance_to_target_high:
-                    self.debounced_print('Enemy in range. Attempting to attack')
+                    self.debounced_print('Enemy in range. Attempting to attack.')
                     if autoapproach:
                         self.ensure_walking_state(False)
                     self.state_overall = AssistState.ATTACKING
                     continue
                 if autoapproach:
-                    self.debounced_print('Enemy out of range range. Attempting to approach enemy')
+                    self.debounced_print('Enemy out of range. Attempting to approach.')
                     self.turn_to_target(self.target['x'], self.target['y'])
                     self.ensure_walking_state(True)
                 time.sleep(0.1)
 
             elif self.state_overall == AssistState.ATTACKING:
                 if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to acquire enemy')
-                    self.state_overall = AssistState.ACQUIRING_ENEMY
+                    self.debounced_print('No enemy selected. Attempting to select enemy.')
+                    self.state_overall = AssistState.SELECTING_ENEMY
                     continue
                 if self.target['distance_xy'] > self.max_distance_to_target_high:
-                    self.debounced_print('Enemy out of range. Attempting to acquire enemy')
-                    self.state_overall = AssistState.ACQUIRING_ENEMY
+                    self.debounced_print('Enemy out of range. Attempting to select enemy.')
+                    self.state_overall = AssistState.SELECTING_ENEMY
                     continue
                 if self.is_moving:
-                    self.debounced_print('Still moving, waiting for stop')
+                    self.debounced_print('Player moving. Waiting for stop.')
                     time.sleep(0.1)
                     continue
-                if self.own['is_casting'] == 1 and self.target['is_battle_npc'] and self.prev_enemy_object_id != self.target['object_id']:
+                if self.target['total_cast_time'] > 1:
+                    if autoapproach:
+                        self.debounced_print('Enemy casting AOE. Attempting to avoid.')
+                        enemy_coordinates = (self.target['x'], self.target['y'], self.target['z'])
+                        self.init_routing_target(self.get_own_coordinate(), avoid_coordinate=enemy_coordinates, avoid_radius=self.target['total_cast_time'] * 2.5)
+                        self.state_overall = AssistState.AOE_AVOIDANCE_NAVIGATION
+                        continue
+                if self.own['is_casting'] and self.target['is_battle_npc'] and self.prev_enemy_object_id != self.target['object_id']:
                     self.cancel()
                     time.sleep(0.05)
                     continue
-                if self.own['is_casting'] == 1:
+                if self.own['is_casting']:
                     self.clear_cast_attempt()
                     self.set_cast_time()
                     time.sleep(0.05)
                     continue
                 self.prev_enemy_object_id = self.target['object_id']
                 if self.get_cast_attempt_expired():
-                    self.debounced_print('Cast attempt expired. Attempting to acquire enemy')
+                    self.debounced_print('Cast expired. Attempting to select enemy.')
                     self.rollback_state_attack()
                     self.clear_cast_time()
                     self.clear_cast_attempt()
-                    self.state_overall = AssistState.ACQUIRING_ENEMY
+                    self.state_overall = AssistState.SELECTING_ENEMY
                     continue
                 if self.get_cast_failed():
-                    self.debounced_print('Cast interrupted. Attempting to acquire enemy')
+                    self.debounced_print('Cast interrupted. Attempting to select enemy.')
                     self.rollback_state_attack()
                     self.clear_cast_time()
                     self.clear_cast_attempt()
-                    self.state_overall = AssistState.ACQUIRING_ENEMY
+                    self.state_overall = AssistState.SELECTING_ENEMY
                     continue
                 if self.cast_attempt_timestamp:
                     if self.curr_skill:
                         self.cast(self.curr_skill, silent=True)
                     continue
-                self.debounced_print('Enemy in range. Attacking!')
+                self.debounced_print('Attacking!')
                 self.confirm_state_attack()
                 self.attack()
+
+            elif self.state_overall == AssistState.AOE_AVOIDANCE_NAVIGATION:
+                if not self.target_acquired:
+                    self.debounced_print('No enemy selected. Attempting to select enemy.')
+                    self.ensure_walking_state(False)
+                    self.state_overall = AssistState.SELECTING_ENEMY
+                    continue
+                if not self.target['is_casting']:
+                    self.debounced_print('Enemy not casting. Attempting to attack.')
+                    self.ensure_walking_state(False)
+                    self.state_overall = AssistState.ATTACKING
+                    continue
+                if self.target['distance_xy'] > self.target['total_cast_time'] * 2.5:
+                    self.debounced_print('Out of AOE range. Attempting to attack.')
+                    self.ensure_walking_state(False)
+                    self.state_overall = AssistState.ATTACKING
+                    continue
+                self.debounced_print('Avoiding AOE!')
+                print(self.shortest_path)
+                self.walk_to_routing_target(self.get_own_coordinate(), reinit_if_empty=False, reinit_if_different=False, avoid_coordinate=enemy_coordinates, avoid_radius=self.target['total_cast_time'] * 2.5)
+                time.sleep(0.05)
 
     def start_dungeon(self):
         teammate_state = DungeonTeammateState.TANK
@@ -799,14 +829,15 @@ class Bot:
             if self.state_overall == DungeonState.NAVIGATING_DUNGEON:
                 is_continue_walking = self.walk_to_routing_target(self.navigation_target_coordinate, reinit_if_empty=False, reinit_if_different=True)
                 if not is_continue_walking:
-                    self.debounced_print('Reached end of dungeon!')
+                    self.debounced_print('Reached end of dungeon. Attempting to exit.')
                     self.state_overall = DungeonState.EXITING_DUNGEON
                     continue
                 self.state_overall = DungeonState.TOGGLING_TEAMMATE
 
             elif self.state_overall == DungeonState.EXITING_DUNGEON:
-                self.walk_to_routing_target(self.navigation_target_coordinate, reinit_if_empty=False, reinit_if_different=True)
+                is_continue_walking = self.walk_to_routing_target(self.navigation_target_coordinate, reinit_if_empty=False, reinit_if_different=True)
                 if not is_continue_walking:
+                    self.debounced_print('Reached exit. Attempting to use exit.')
                     self.use_nearest_npc_or_object()
 
             elif self.state_overall == DungeonState.TOGGLING_TEAMMATE:
@@ -826,33 +857,50 @@ class Bot:
 
             elif self.state_overall == DungeonState.CHECKING_TEAMMATE:
                 if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to navigate dungeon')
+                    self.debounced_print('No teammate selected. Attempting to navigate dungeon.')
                     self.state_overall = DungeonState.NAVIGATING_DUNGEON
+                    continue
+                if self.target['is_exit']:
+                    self.debounced_print('Exit selected. Attempting to exit.')
+                    self.navigation_target_coordinate = [self.target['x'], self.target['y'], self.target['z']]
+                    self.state_overall = DungeonState.EXITING_DUNGEON
+                    continue
+                if self.target['is_battle_npc']:
+                    self.debounced_print('Selection is a battle NPC. Attempting to check enemy.')
+                    self.state_overall = DungeonState.CHECKING_ENEMY
                     continue
                 if not self.target['is_player_character']:
-                    self.debounced_print('Non-player selected. Attempting to navigate dungeon')
+                    self.debounced_print('Selection is not a teammate. Attempting to navigate dungeon.')
                     self.state_overall = DungeonState.NAVIGATING_DUNGEON
                     continue
-                self.debounced_print('Teammate selected. Attempting to navigate to teammate')
+                self.debounced_print('Teammate selected. Attempting to navigate to teammate.')
                 self.cancel_routing_target()  # Need to cancel routing when entering dynamic waypoint
                 self.state_overall = DungeonState.NAVIGATING_TO_TEAMMATE
 
             elif self.state_overall == DungeonState.NAVIGATING_TO_TEAMMATE:
                 if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to select teammate')
+                    self.debounced_print('No teammate selected. Attempting to toggle teammate.')
                     self.cancel_routing_target()
                     self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     continue
+                if self.target['is_exit']:
+                    self.debounced_print('Exit selected. Attempting to exit.')
+                    self.navigation_target_coordinate = [self.target['x'], self.target['y'], self.target['z']]
+                    self.state_overall = DungeonState.EXITING_DUNGEON
+                    continue
+                if self.target['is_battle_npc']:
+                    self.debounced_print('Selection is a battle NPC. Attempting to check enemy.')
+                    self.state_overall = DungeonState.CHECKING_ENEMY
+                    continue
                 if not self.target['is_player_character']:
-                    self.debounced_print('Non-player selected. Attempting to select teammate')
-                    self.state_overall = DungeonState.SELECTING_TEAMMATE
+                    self.debounced_print('Selection is not a teammate. Attempting to toggle teammate.')
+                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     continue
                 if self.target['distance_xy'] < self.max_distance_to_teammate:
-                    self.debounced_print('Teammate in range. Attempting to select enemy')
+                    self.debounced_print('Teammate in range. Attempting to select enemy.')
                     self.cancel_routing_target()
                     self.state_overall = DungeonState.SELECTING_ENEMY
                     continue
-                self.debounced_print('Navigating to teammate')
                 self.walk_to_routing_target([self.target['x'], self.target['y']], reinit_if_empty=True, reinit_if_different=False)
 
             elif self.state_overall == DungeonState.SELECTING_ENEMY:
@@ -865,63 +913,82 @@ class Bot:
 
             elif self.state_overall == DungeonState.CHECKING_ENEMY:
                 if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to select teammate')
+                    self.debounced_print('No enemy selected. Attempting to toggle teammate.')
                     self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     continue
                 if self.target['is_exit']:
-                    self.debounced_print('Selection is exit. Attempting to exit!')
+                    self.debounced_print('Exit selected. Attempting to exit.')
                     self.navigation_target_coordinate = [self.target['x'], self.target['y'], self.target['z']]
                     self.state_overall = DungeonState.EXITING_DUNGEON
                     continue
                 if not (self.target['is_battle_npc'] and self.target['is_damaged']):
-                    self.debounced_print('Selection is not a damaged enemy. Attempting to select teammate')
+                    self.debounced_print('Enemy is not engaged. Attempting to toggle teammate.')
+                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
+                    continue
+                if self.target['is_player_character']:
+                    self.debounced_print('Selection is a teammate. Attempting to toggle teammate.')
                     self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     continue
                 if self.target['distance_xy'] > self.max_distance_to_target_high:
-                    self.debounced_print('Enemy out of range. Attempting to select teammate')
-                    self.state_overall = DungeonState.SELECTING_TEAMMATE
+                    self.debounced_print('Enemy out of range. Attempting to toggle teammate.')
+                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     continue
-                self.debounced_print('Enemy in range. Attempting to attack enemy')
+                self.debounced_print('Enemy in range. Attempting to attack.')
                 self.state_overall = DungeonState.ATTACKING
 
             elif self.state_overall == DungeonState.ATTACKING:
                 if not self.target_acquired:
-                    self.debounced_print('No selection. Attempting to select enemy')
+                    self.debounced_print('No enemy selected. Attempting to select enemy.')
                     self.clear_cast_time()
                     self.clear_cast_attempt()
                     self.state_overall = DungeonState.SELECTING_ENEMY
                     continue
+                if self.target['is_exit']:
+                    self.debounced_print('Exit selected. Attempting to exit.')
+                    self.navigation_target_coordinate = [self.target['x'], self.target['y'], self.target['z']]
+                    self.state_overall = DungeonState.EXITING_DUNGEON
+                    continue
                 if not (self.target['is_battle_npc'] and self.target['is_damaged']):
-                    self.debounced_print('Selection is not a damaged enemy. Attempting to select enemy')
+                    self.debounced_print('Enemy is not engaged. Attempting to select enemy.')
                     self.clear_cast_time()
                     self.clear_cast_attempt()
+                    self.state_overall = DungeonState.SELECTING_ENEMY
+                    continue
+                if self.target['is_player_character']:
+                    self.debounced_print('Selection is a teammate. Attempting to select enemy.')
                     self.state_overall = DungeonState.SELECTING_ENEMY
                     continue
                 if self.target['distance_xy'] > self.max_distance_to_target_high:
-                    self.debounced_print('Enemy out of range. Attempting to select enemy')
+                    self.debounced_print('Enemy out of range. Attempting to select enemy.')
                     self.clear_cast_time()
                     self.clear_cast_attempt()
                     self.state_overall = DungeonState.SELECTING_ENEMY
                     continue
-                if self.own['is_casting'] == 1 and self.target['is_battle_npc'] and self.prev_enemy_object_id != self.target['object_id']:
+                if self.target['total_cast_time'] > 1:
+                    self.debounced_print('Enemy casting AOE. Attempting to avoid.')
+                    enemy_coordinates = (self.target['x'], self.target['y'], self.target['z'])
+                    self.init_routing_target(self.get_own_coordinate(), avoid_coordinate=enemy_coordinates, avoid_radius=self.target['total_cast_time'] * 2.5)
+                    self.state_overall = DungeonState.AOE_AVOIDANCE_NAVIGATION
+                    continue
+                if self.own['is_casting'] and self.target['is_battle_npc'] and self.prev_enemy_object_id != self.target['object_id']:
                     self.cancel()
                     time.sleep(0.05)
                     continue
-                if self.own['is_casting'] == 1:
+                if self.own['is_casting']:
                     self.clear_cast_attempt()
                     self.set_cast_time()
                     time.sleep(0.05)
                     continue
                 self.prev_enemy_object_id = self.target['object_id']
                 if self.get_cast_attempt_expired():
-                    self.debounced_print('Cast attempt expired. Attempting to select teammate')
+                    self.debounced_print('Cast expired. Attempting to select enemy.')
                     self.rollback_state_attack()
                     self.clear_cast_time()
                     self.clear_cast_attempt()
-                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
+                    self.state_overall = DungeonState.SELECTING_ENEMY
                     continue
                 if self.get_cast_failed():
-                    self.debounced_print('Cast interrupted. Attempting to acquire enemy')
+                    self.debounced_print('Cast interrupted. Attempting to select enemy.')
                     self.rollback_state_attack()
                     self.clear_cast_time()
                     self.clear_cast_attempt()
@@ -931,13 +998,33 @@ class Bot:
                     if self.curr_skill:
                         self.cast(self.curr_skill, silent=True)
                     continue
-                self.debounced_print('Enemy in range. Attacking!')
+                self.debounced_print('Attacking!')
                 self.confirm_state_attack()
                 self.attack()
                 if self.target['name_id'] == 73:  # Galvanth the dominator
-                    self.debounced_print('Galvanth detected. Attempting to select DPS target')
+                    self.debounced_print('Galvanth selected. Attempting to select DPS target.')
                     teammate_state = DungeonTeammateState.DPS
                     self.state_overall = DungeonState.SELECTING_ENEMY
+
+            elif self.state_overall == DungeonState.AOE_AVOIDANCE_NAVIGATION:
+                if not self.target_acquired:
+                    self.debounced_print('No enemy selected. Attempting to select enemy.')
+                    self.state_overall = DungeonState.SELECTING_ENEMY
+                    self.ensure_walking_state(False)
+                    continue
+                if not self.target['is_casting']:
+                    self.debounced_print('Enemy not casting. Attempting to attack.')
+                    self.ensure_walking_state(False)
+                    self.state_overall = DungeonState.ATTACKING
+                    continue
+                if self.target['distance_xy'] > self.target['total_cast_time'] * 2.5:
+                    self.debounced_print('Out of AOE range. Attempting to attack.')
+                    self.ensure_walking_state(False)
+                    self.state_overall = DungeonState.ATTACKING
+                    continue
+                self.debounced_print('Avoiding AOE!')
+                self.walk_to_routing_target(self.get_own_coordinate(), reinit_if_empty=False, reinit_if_different=False, avoid_coordinate=enemy_coordinates, avoid_radius=self.target['total_cast_time'] * 2.5)
+                time.sleep(0.05)
 
     def record(self, interval=0.1):
         print('Recording!')
