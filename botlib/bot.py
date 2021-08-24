@@ -16,62 +16,56 @@ from botlib.memory import get_winlist, get_hwnd, get_hwnd_base_address, open_pro
 from waypointlib.routing import get_euclidean_distance, WaypointRouter
 
 address_descriptions = {
-    'own_pointer': {  # This is the pointer to self game object
-        'base_address_offset': 0x01DB8210,
-        'pointer_offsets': (),
-        'datatype': 'integer',
-    },
-
     'target_pointer': {  # This is the pointer to target game object (TargetSystem->Target)
-        'base_address_offset': 0x01DB8140,
+        'base_address_offset': 0x01DAF140,
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
     'teammate1_pointer': {  # This is the pointer to first teammate (usually self)
-        'base_address_offset': 0x1DDFB60,
+        'base_address_offset': 0x1E09040,
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
     'teammate2_pointer': {  # This is the pointer to second teammate
-        'base_address_offset': 0x1DDFB68,
+        'base_address_offset': 0x1E09050,
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
     'teammate3_pointer': {  # This is the pointer to third teammate
-        'base_address_offset': 0x1DDFB70,
+        'base_address_offset': 0x1E09060,
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
     'teammate4_pointer': {  # This is the pointer to fourth teammate
-        'base_address_offset': 0x1DDFB78,
+        'base_address_offset': 0x1E09070,
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
     'map_id': {
-        'base_address_offset': 0x01DB7F24,  # Search 13 at Steps of Nald is 13, and 20 at Western Thanalan
+        'base_address_offset': 0x01DAEF24,  # Search 13 at Steps of Nald is 13, and 20 at Western Thanalan
         'pointer_offsets': (),
         'datatype': 'integer',
     },
 
     'is_moving': {  # Search 0 when not autorun, and 1 when autorun
-        'base_address_offset': 0x01DB7F70,
-        'pointer_offsets': (0x18C,),
-        'datatype': 'integer',
-    },
-
-    'is_waiting_for_duty': {  # Search 1 when waiting for duty, and 0 when not
-        'base_address_offset': 0x01DF3D5C,
+        'base_address_offset': 0x01DB2E3C,
         'pointer_offsets': (),
         'datatype': 'byte',
     },
 
-    'is_duty_found_window': {  # Search "ui/uld/NotificationItem.uld" after duty notification pops up, and "ui/uld/JournalDetail.uld" after opening inventory
-        'base_address_offset': 0x01DBC560,
+    'is_waiting_for_duty': {  # Search 1 when waiting for duty, and 0 when not
+        'base_address_offset': 0x01DEAD5C,
+        'pointer_offsets': (),
+        'datatype': 'byte',
+    },
+
+    'is_duty_found_window': {  # Search "ui/uld/NotificationItem.uld" after duty notification pops up, "ui/uld/JournalDetail.uld" after opening journal, and "ui/uld/HudLayout.uld" after opening HUD layout
+        'base_address_offset': 0x01DB3560,
         'pointer_offsets': (),
         'datatype': 'string',
         'length': 32,
@@ -83,21 +77,21 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
-    'character_rotation': {  # Search for character rotation directly
-        'base_address_offset': 0x01DB8210,
+    'character_rotation': {  # Search for character rotation directly (this is outside the executable)
+        'base_address_offset': 0x01DAF1C0,
         'pointer_offsets': (0xB0,),
         'datatype': 'float',
     },
 
-    'character_rotation_1': {  # math.cos(bot.character_rotation / 2)
-        'base_address_offset': 0x01DBBE20,
-        'pointer_offsets': (0x758, 0x6C),
+    'character_rotation_1': {  # math.cos(bot.character_rotation / 2) (this is outside the executable)
+        'base_address_offset': 0x01DAF210,
+        'pointer_offsets': (0xF0, 0x6C),
         'datatype': 'float',
     },
 
-    'character_rotation_2': {  # math.sin(bot.character_rotation / 2)
-        'base_address_offset': 0x01DBBE20,
-        'pointer_offsets': (0x758, 0x64),
+    'character_rotation_2': {  # math.sin(bot.character_rotation / 2) (this is outside the executable)
+        'base_address_offset': 0x01DAF210,
+        'pointer_offsets': (0xF0, 0x64),
         'datatype': 'float',
     },
 }
