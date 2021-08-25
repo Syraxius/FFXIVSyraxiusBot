@@ -78,7 +78,7 @@ address_descriptions = {
     },
 
     'character_rotation': {  # Search for character rotation directly (this is outside the executable)
-        'base_address_offset': 0x01DAF1C0,
+        'base_address_offset': 0x01DAF210,
         'pointer_offsets': (0xB0,),
         'datatype': 'float',
     },
