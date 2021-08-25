@@ -22,7 +22,7 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
-    'teammate1_pointer': {  # This is the pointer to first teammate (usually self)
+    'teammate1_pointer': {  # This is the pointer to first teammate (usually self). Search your own character game object address until you have 10 results left, then take the 2nd from the back.
         'base_address_offset': 0x1E09040,
         'pointer_offsets': (),
         'datatype': 'integer',
@@ -90,9 +90,9 @@ address_descriptions = {
     },
 
     'is_cutscene': {  # Search 0 when not in cutscene (e.g. in dungeon cutscene), and 1 when in cutscene
-        'base_address_offset': 0x01D69F68,
+        'base_address_offset': 0x01D60F68,
         'pointer_offsets': (),
-        'datatype': 'integer',
+        'datatype': 'byte',
     },
 }
 
@@ -735,6 +735,9 @@ class Bot:
                 if self.target['total_cast_time'] > 1:
                     if autoapproach:
                         self.debounced_print('Enemy casting AOE. Attempting to avoid.')
+                        self.rollback_state_attack()
+                        self.clear_cast_time()
+                        self.clear_cast_attempt()
                         enemy_coordinates = (self.target['x'], self.target['y'], self.target['z'])
                         self.init_routing_target(self.get_own_coordinate(), avoid_coordinate=enemy_coordinates, avoid_radius=self.target['total_cast_time'] * 2.5)
                         self.state_overall = AssistState.AOE_AVOIDANCE_NAVIGATION
@@ -811,6 +814,7 @@ class Bot:
                 continue
 
             if self.is_cutscene:
+                self.debounced_print('Cutscene detected, skipping...')
                 time.sleep(5)
                 self.skip_cutscene()
                 time.sleep(5)
@@ -960,6 +964,9 @@ class Bot:
                     continue
                 if self.target['total_cast_time'] > 1:
                     self.debounced_print('Enemy casting AOE. Attempting to avoid.')
+                    self.rollback_state_attack()
+                    self.clear_cast_time()
+                    self.clear_cast_attempt()
                     enemy_coordinates = (self.target['x'], self.target['y'], self.target['z'])
                     self.init_routing_target(self.get_own_coordinate(), avoid_coordinate=enemy_coordinates, avoid_radius=self.target['total_cast_time'] * 2.5)
                     self.state_overall = DungeonState.AOE_AVOIDANCE_NAVIGATION
@@ -975,11 +982,11 @@ class Bot:
                     continue
                 self.prev_enemy_object_id = self.target['object_id']
                 if self.get_cast_attempt_expired():
-                    self.debounced_print('Cast expired. Attempting to select enemy.')
+                    self.debounced_print('Cast expired. Attempting to toggle teammate.')
                     self.rollback_state_attack()
                     self.clear_cast_time()
                     self.clear_cast_attempt()
-                    self.state_overall = DungeonState.SELECTING_ENEMY
+                    self.state_overall = DungeonState.TOGGLING_TEAMMATE
                     continue
                 if self.get_cast_failed():
                     self.debounced_print('Cast interrupted. Attempting to select enemy.')

@@ -17,7 +17,7 @@ def main():
             'map_id': 9,
         }
     }
-    bot = BlackMageBot(mode='assist_autotarget', dungeon_config=dungeon_config['tamtara'])
+    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['tamtara'])
 
     def handler(signum, frame):
         bot.stop_all()
