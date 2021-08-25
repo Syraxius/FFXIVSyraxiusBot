@@ -1,6 +1,8 @@
 # FFXIV Syraxius Bot
 Experimental bot for Final Fantasy XIV. Still largely WIP.
 
+Feel free to raise any suggestions, ideas or bugs.
+
 # Disclaimer:
 - This software is for educational purposes only.
 - Hacking is illegal and it violates FFXIV's terms of use.
