@@ -17,19 +17,7 @@ def main():
             'map_id': 9,
         }
     }
-    navigation_config = {
-        'empty': {
-            'recordings': None,
-            'custom_cache_name': None,
-        }, 'uldah': {
-            'recordings': ['caches/sampleuldah.json'],
-            'custom_cache_name': None,
-        }, 'tamtara': {
-            'recordings': ['recordings/tamtara1.json', 'recordings/tamtara2.json', 'recordings/tamtara3.json'],
-            'custom_cache_name': 'caches/tamtaracombined.cache',
-        }
-    }
-    bot = BlackMageBot(mode='dungeon', dungeon_config=dungeon_config['tamtara'])
+    bot = BlackMageBot(mode='assist_autotarget', dungeon_config=dungeon_config['tamtara'])
 
     def handler(signum, frame):
         bot.stop_all()
