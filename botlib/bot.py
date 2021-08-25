@@ -46,16 +46,34 @@ address_descriptions = {
         'datatype': 'integer',
     },
 
-    'map_id': {
-        'base_address_offset': 0x01DAEF24,  # Search 13 at Steps of Nald is 13, and 20 at Western Thanalan
-        'pointer_offsets': (),
-        'datatype': 'integer',
+    'character_rotation': {  # Search for character rotation directly (this is outside the executable)
+        'base_address_offset': 0x01DAF210,
+        'pointer_offsets': (0xB0,),
+        'datatype': 'float',
     },
 
     'is_moving': {  # Search 0 when not autorun, and 1 when autorun
         'base_address_offset': 0x01DB2E3C,
         'pointer_offsets': (),
         'datatype': 'byte',
+    },
+
+    'character_rotation_sin': {  # math.sin(bot.character_rotation / 2) (this is outside the executable)
+        'base_address_offset': 0x01DAF210,
+        'pointer_offsets': (0xF0, 0x64),
+        'datatype': 'float',
+    },
+
+    'character_rotation_cos': {  # math.cos(bot.character_rotation / 2) (this is outside the executable)
+        'base_address_offset': 0x01DAF210,
+        'pointer_offsets': (0xF0, 0x6C),
+        'datatype': 'float',
+    },
+
+    'map_id': {  # Search 13 at Steps of Nald is 13, and 20 at Western Thanalan
+        'base_address_offset': 0x01DAEF24,
+        'pointer_offsets': (),
+        'datatype': 'integer',
     },
 
     'is_waiting_for_duty': {  # Search 1 when waiting for duty, and 0 when not
@@ -75,24 +93,6 @@ address_descriptions = {
         'base_address_offset': 0x01D69F68,
         'pointer_offsets': (),
         'datatype': 'integer',
-    },
-
-    'character_rotation': {  # Search for character rotation directly (this is outside the executable)
-        'base_address_offset': 0x01DAF210,
-        'pointer_offsets': (0xB0,),
-        'datatype': 'float',
-    },
-
-    'character_rotation_1': {  # math.cos(bot.character_rotation / 2) (this is outside the executable)
-        'base_address_offset': 0x01DAF210,
-        'pointer_offsets': (0xF0, 0x6C),
-        'datatype': 'float',
-    },
-
-    'character_rotation_2': {  # math.sin(bot.character_rotation / 2) (this is outside the executable)
-        'base_address_offset': 0x01DAF210,
-        'pointer_offsets': (0xF0, 0x64),
-        'datatype': 'float',
     },
 }
 
@@ -289,8 +289,8 @@ class Bot:
         self.teammate3 = False
         self.teammate4_acquired = False
         self.teammate4 = False
-        self.map_id = 0
         self.is_moving = False
+        self.map_id = 0
         self.is_waiting_for_duty = False
         self.is_duty_found_window = False
         self.is_cutscene = False
@@ -354,11 +354,11 @@ class Bot:
             self.target = None
 
         # Query additional data
-        self.map_id = get_memory_value(self.hwnd, self.base_address, address_descriptions['map_id'], external_handle=handle)
         self.is_moving = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_moving'], external_handle=handle)
-        self.is_cutscene = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_cutscene'], external_handle=handle)
+        self.map_id = get_memory_value(self.hwnd, self.base_address, address_descriptions['map_id'], external_handle=handle)
         self.is_waiting_for_duty = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_waiting_for_duty'], external_handle=handle) == 1
         self.is_duty_found_window = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_duty_found_window'], external_handle=handle) == b'ui/uld/NotificationItem.uld'
+        self.is_cutscene = get_memory_value(self.hwnd, self.base_address, address_descriptions['is_cutscene'], external_handle=handle)
 
         close_process_vm_handle(handle)
 
@@ -461,8 +461,8 @@ class Bot:
 
     def turn_to_game_rotation(self, game_rotation):
         set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation'], game_rotation)
-        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_1'], math.cos(game_rotation / 2))
-        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_2'], math.sin(game_rotation / 2))
+        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_sin'], math.sin(game_rotation / 2))
+        set_memory_value(self.hwnd, self.base_address, address_descriptions['character_rotation_cos'], math.cos(game_rotation / 2))
 
     def turn_to_target(self, target_x, target_y, traditional=False):
         if traditional:
